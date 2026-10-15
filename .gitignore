@@ -9,5 +9,6 @@ src-tauri/gen/
 *.wav
 *.fxp
 *.syx
+*.vstpreset
 __pycache__/
 *.pyc

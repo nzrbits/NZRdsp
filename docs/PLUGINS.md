@@ -1,6 +1,6 @@
 # Plugin CLI scope
 
-These notes correct the assumptions in the twenty plugin issues before implementation. They distinguish documented behavior from an implementation proposal. A native host adapter, a preset-container reader and an independent DSP implementation are separate deliverables. Only the Surge adapter has been built and tested here; the other products have not been rendered for comparison.
+These notes correct the assumptions in the twenty plugin issues before implementation. They distinguish documented behavior from an implementation proposal. A native host adapter, a preset-container reader and an independent DSP implementation are separate deliverables. Surge has a tested adapter. Saturn 2 and Pro-Q 4 now have native reference rendering through the [VST3 CLI](VST_CLI.md), without independent algorithm implementations.
 
 ## Open engines
 
@@ -64,4 +64,4 @@ For each implemented command, retain the native version, module hash, preset has
 
 ## Remaining work
 
-The twenty issues stay open until their requested implementation and reference checks are complete. Surge currently has the native adapter and regression tests; its remaining items are listed in its guide. All other entries above are researched implementation scopes, not delivered engines. The longer research report, evidence ledger and source snapshots are being assembled separately under Documents/NZRdsp_Plugin_Research_20261016.
+The twenty issues stay open until their requested implementation and reference checks are complete. Surge currently has the native adapter and regression tests; its remaining items are listed in its guide. Saturn 2 and Pro-Q 4 have native reference-host fixtures and streamed processing checks. Other entries are researched implementation scopes, not delivered engines. The longer research report, evidence ledger and source snapshots are being assembled separately under Documents/NZRdsp_Plugin_Research_20261016.

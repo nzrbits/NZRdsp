@@ -103,7 +103,7 @@ def execute(request):
     if patch and output == patch:
         raise ValueError("Output must differ from the input patch")
     if request["action"] == "init":
-        with tempfile.TemporaryDirectory(dir=output.parent) as directory:
+        with tempfile.TemporaryDirectory(dir=request.get("staging_dir", output.parent)) as directory:
             temporary = Path(directory) / "init.fxp"
             engine.savePatch(str(temporary))
             if not temporary.is_file() or temporary.stat().st_size == 0:
@@ -122,7 +122,7 @@ def execute(request):
     on_blocks = math.ceil(duration * rate / block)
     tail_frames = round(tail * rate)
     peak, power, frames = 0.0, 0.0, 0
-    with tempfile.TemporaryDirectory(dir=output.parent) as directory:
+    with tempfile.TemporaryDirectory(dir=request.get("staging_dir", output.parent)) as directory:
         temporary = Path(directory) / "audio.wav"
         with sf.SoundFile(temporary, "w", rate, 2, format="WAV", subtype="FLOAT") as writer:
             engine.playNote(0, note, velocity, 0)

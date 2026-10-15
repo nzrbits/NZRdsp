@@ -59,8 +59,8 @@
     "number": 8,
     "title": "08 — FabFilter Saturn 2: Multiband Saturation CLI",
     "url": "https://github.com/nzrbits/NZRdsp/issues/8",
-    "status": "pending",
-    "evidence": "",
+    "status": "in-progress",
+    "evidence": "VST_CLI.md#verification",
     "scope_notes": "PLUGINS.md"
   },
   {
@@ -155,8 +155,8 @@
     "number": 20,
     "title": "20 — FabFilter Pro-Q 4: Dynamic EQ CLI",
     "url": "https://github.com/nzrbits/NZRdsp/issues/20",
-    "status": "pending",
-    "evidence": "",
+    "status": "in-progress",
+    "evidence": "VST_CLI.md#verification",
     "scope_notes": "PLUGINS.md"
   }
 ]

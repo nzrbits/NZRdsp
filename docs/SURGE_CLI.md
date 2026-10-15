@@ -42,3 +42,5 @@ $env:NZRDSP_RUNTIME = "$env:LOCALAPPDATA\NZRdsp\runtime.json"
 ```
 
 Issue #7 remains open for preset browser metadata and the separate GUI comparison. The CLI commands are not yet exposed as Tauri tabs.
+
+The shared Rust worker manager now captures output concurrently, uses a 30-minute deadline for Surge and owns the staging directory. The four native Surge checks pass after this extraction. A separate opt-in Rust test verifies termination of a sleeping Python worker; no native audio is played.

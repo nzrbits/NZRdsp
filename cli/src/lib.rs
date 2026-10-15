@@ -1,11 +1,9 @@
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
-use serde_json::{json, Value};
-use std::{
-    io::Write,
-    path::PathBuf,
-    process::{Command, Stdio},
-};
+use serde_json::json;
+use std::{path::PathBuf, time::Duration};
+mod vst;
+mod worker;
 
 #[derive(Parser)]
 #[command(name = "nzrdsp", version, about = "NZRdsp offline synthesis")]
@@ -17,6 +15,8 @@ struct Cli {
 #[derive(Subcommand)]
 enum Engine {
     Surge(SurgeArgs),
+    /// Render through an installed native VST3 effect
+    Vst(vst::VstArgs),
 }
 
 #[derive(Parser)]
@@ -63,6 +63,7 @@ pub fn run(surge_alias: bool) -> Result<()> {
     } else {
         match Cli::parse().engine {
             Engine::Surge(args) => args,
+            Engine::Vst(args) => return vst::run(args),
         }
     };
     if !args.duration.is_finite()
@@ -73,18 +74,7 @@ pub fn run(surge_alias: bool) -> Result<()> {
     {
         bail!("Duration must be finite in (0, 600] seconds; tail in [0, 60]");
     }
-    let runtime_path = args
-        .runtime
-        .or_else(|| std::env::var_os("NZRDSP_RUNTIME").map(PathBuf::from))
-        .or_else(|| {
-            std::env::var_os("LOCALAPPDATA")
-                .map(|path| PathBuf::from(path).join("NZRdsp").join("runtime.json"))
-        })
-        .context("Pass --runtime or set NZRDSP_RUNTIME")?;
-    let runtime: Value = serde_json::from_slice(
-        &std::fs::read(&runtime_path)
-            .with_context(|| format!("Read runtime config {}", runtime_path.display()))?,
-    )?;
+    let runtime = worker::runtime(args.runtime)?;
     let python = runtime["python"]
         .as_str()
         .context("Runtime config needs python")?;
@@ -102,52 +92,12 @@ pub fn run(surge_alias: bool) -> Result<()> {
         "preset":args.preset,"output":args.output.or(args.init_preset),"note":args.note,
         "velocity":args.velocity,"duration":args.duration,"tail":args.tail,"rate":args.rate,
         "parameters":args.parameters});
-    let mut worker = tempfile::NamedTempFile::new()?;
-    worker.write_all(include_bytes!("../../python/surge_worker.py"))?;
-    worker.flush()?;
-    let mut command = Command::new(python);
-    command
-        .args(["-X", "utf8", "-u"])
-        .arg(worker.path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        command.creation_flags(0x08000000);
-    }
-    let mut child = command
-        .spawn()
-        .context("Start the configured Python runtime")?;
-    let write_result = child
-        .stdin
-        .take()
-        .context("Worker stdin missing")?
-        .write_all(&serde_json::to_vec(&request)?);
-    if let Err(error) = write_result {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(error.into());
-    }
-    let output = child.wait_with_output()?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let response = stdout
-        .lines()
-        .rev()
-        .find_map(|line| serde_json::from_str::<Value>(line).ok())
-        .with_context(|| {
-            format!(
-                "Worker returned no JSON: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )
-        })?;
-    if !output.status.success() || response["error"].is_string() {
-        bail!(
-            "{}",
-            response["error"].as_str().unwrap_or("Surge worker failed")
-        );
-    }
+    let response = worker::execute(
+        python,
+        include_bytes!("../../python/surge_worker.py"),
+        request,
+        Duration::from_secs(1800),
+    )?;
     println!("{}", serde_json::to_string_pretty(&response)?);
     Ok(())
 }
@@ -161,7 +111,9 @@ mod tests {
         let primary =
             Cli::try_parse_from(["nzrdsp", "surge", "--param", "volume=-6", "-o", "test.wav"])
                 .unwrap();
-        let Engine::Surge(args) = primary.engine;
+        let Engine::Surge(args) = primary.engine else {
+            panic!("Expected Surge command");
+        };
         assert_eq!(args.parameters, ["volume=-6"]);
         let alias =
             SurgeCli::try_parse_from(["surge-cli", "--param", "volume=-6", "-o", "test.wav"])

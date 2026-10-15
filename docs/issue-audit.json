@@ -45,8 +45,8 @@
     "number": 7,
     "title": "07 — Surge XT: Hybrid Synth CLI",
     "url": "https://github.com/nzrbits/NZRdsp/issues/7",
-    "status": "pending",
-    "evidence": ""
+    "status": "in-progress",
+    "evidence": "SURGE_CLI.md#verification"
   },
   {
     "number": 8,

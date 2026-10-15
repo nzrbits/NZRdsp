@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicegui-org/nicegui/main/nicegui/tauri_conf_schema.json",
-  "productName": "NZR Tools",
+  "productName": "NZRdsp",
   "version": "1.0.0",
   "identifier": "com.nzr.tools",
   "build": {
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "NZR Tools",
+        "title": "NZRdsp",
         "width": 1280,
         "height": 860,
         "minWidth": 900,

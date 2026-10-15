@@ -1,0 +1,142 @@
+[
+  {
+    "number": 1,
+    "title": "01 — Xfer Serum 2: Wavetable Synth CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/1",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 2,
+    "title": "02 — Vital: Spectral Warping Wavetable Synth CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/2",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 3,
+    "title": "03 — NI Massive X: Wavetable Synth CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/3",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 4,
+    "title": "04 — Arturia Pigments 6: Multi-Engine Synth CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/4",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 5,
+    "title": "05 — Synapse DUNE 3: Hybrid Synth CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/5",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 6,
+    "title": "06 — Dexed: DX7 FM Synth CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/6",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 7,
+    "title": "07 — Surge XT: Hybrid Synth CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/7",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 8,
+    "title": "08 — FabFilter Saturn 2: Multiband Saturation CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/8",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 9,
+    "title": "09 — Soundtoys Decapitator: Analog Saturation CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/9",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 10,
+    "title": "10 — Output Thermal: Multi-Stage Distortion CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/10",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 11,
+    "title": "11 — Process.Audio Spicerack: Creative Distortion CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/11",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 12,
+    "title": "12 — FabFilter Pro-C 2: Compressor CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/12",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 13,
+    "title": "13 — SPL Transient Designer: Transient Shaper CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/13",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 14,
+    "title": "14 — XLN DS-10 Drum Shaper: Drum Transient CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/14",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 15,
+    "title": "15 — Output Portal: Granular FX CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/15",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 16,
+    "title": "16 — Arturia Efx Fragments: Granular FX CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/16",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 17,
+    "title": "17 — Sugar Bytes Graindad: Granular FX CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/17",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 18,
+    "title": "18 — Serato Pitch 'n Time Pro: Time-Stretch/Pitch CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/18",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 19,
+    "title": "19 — iZotope RX Radius: Pitch/Time/Spectral CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/19",
+    "status": "pending",
+    "evidence": ""
+  },
+  {
+    "number": 20,
+    "title": "20 — FabFilter Pro-Q 4: Dynamic EQ CLI",
+    "url": "https://github.com/nzrbits/NZRdsp/issues/20",
+    "status": "pending",
+    "evidence": ""
+  }
+]

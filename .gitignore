@@ -4,3 +4,4 @@ dist/
 *.exe
 *.msi
 *.nsis
+src-tauri/gen/

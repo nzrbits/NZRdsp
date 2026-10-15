@@ -5,3 +5,9 @@ dist/
 *.msi
 *.nsis
 src-tauri/gen/
+*.pyd
+*.wav
+*.fxp
+*.syx
+__pycache__/
+*.pyc

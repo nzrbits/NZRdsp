@@ -4,4 +4,8 @@ The user confirmed NZRdsp and NZRtools are the same project and chose NZRdsp as 
 
 Visible titles and the Cargo package name now use NZRdsp; the legacy Tauri identifier com.nzr.tools is retained for compatibility. Generated schemas are ignored. The standalone editor remains older than Studio's embedded implementation. Do not silently overwrite the richer Studio implementation when extracting shared code.
 
-All 20 GitHub issues are still pending implementation and verification. FabFilter Saturn 2 and Pro-Q 4 binaries were found in the normal VST3 folder; this does not verify activation or algorithm parity. No plugin binary has been executed for issue work yet. No reverse engineering MCP tools were exposed in tool metadata during this inspection.
+All 20 GitHub issues remain open. Issue #7 has a working native Surge renderer: cli/ contains the Rust commands, python/surge_worker.py the bounded streaming adapter, scripts/build-surge.ps1 the reproducible build/setup, and docs/SURGE_CLI.md the interface and limits. The script successfully reused the pinned source/build and configured D:/music-dev/NZRdsp-runtime. Build artifacts remain under D:/music-dev-build/NZRdsp. Native output is not played during checks.
+
+Two Rust parser tests and four native end-to-end tests pass: native preset save/load, WAV at 44.1/48 kHz, parameter validation, output preservation, module-hash rejection and direct native block comparison. The deterministic initialized-patch comparison agrees within 0.000001 absolute sample error. GUI parity and preset browser metadata are still pending, so #7 is not closed. The CLI is not integrated into Tauri tabs yet.
+
+FabFilter Saturn 2 and Pro-Q 4 binaries were found in the normal VST3 folder; this does not verify activation or algorithm parity. No commercial plugin binary has been executed for issue work yet. No reverse engineering MCP tools were exposed in tool metadata during this inspection.

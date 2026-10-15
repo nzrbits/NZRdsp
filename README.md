@@ -6,6 +6,8 @@ The working checkout is `D:/music-dev/NZRdsp`, connected to [nzrbits/NZRdsp](htt
 
 ## Development
 
+The [Surge CLI](docs/SURGE_CLI.md) renders native Surge XT patches through a pinned headless engine. Build the Rust commands with `cargo build --manifest-path cli/Cargo.toml --locked`; build/setup instructions and native verification are in the guide. The Tauri tabs do not yet expose these commands.
+
 Run `cargo check --manifest-path src-tauri/Cargo.toml --locked` to check the host. A Tauri build uses `src-tauri/tauri.conf.json` and the existing `frontend` assets. Build products and generated schemas are not source.
 
 ## Issue work

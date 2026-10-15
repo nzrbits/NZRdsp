@@ -1,0 +1,18 @@
+[package]
+name = "nzrdsp-cli"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+
+[[bin]]
+name = "nzrdsp"
+path = "src/main.rs"
+
+[[bin]]
+name = "surge-cli"
+path = "src/surge_main.rs"

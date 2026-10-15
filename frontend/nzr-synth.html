@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NZR Synth</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg: #0c0e12; --bg2: #13161c; --bg3: #1a1e26; --bg4: #222831;
+  --fg: #c8cdd5; --fg2: #6b7280; --fg3: #3d4450;
+  --accent: #4a9eff; --green: #2dd4a0; --orange: #f59e0b; --red: #ef5350; --purple: #a78bfa;
+  --border: #252a35; --radius: 5px;
+  font-family: 'Inter', system-ui, sans-serif; color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--fg); overflow-x: hidden; }
+
+.top-bar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.top-bar h1 { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+.top-bar .sep { width: 1px; height: 16px; background: var(--border); }
+.top-bar .info { font-size: 11px; color: var(--fg2); font-family: 'JetBrains Mono', monospace; }
+
+.panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); }
+.panel { background: var(--bg); padding: 12px 14px; }
+.panel-title {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+  color: var(--fg2); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.ctrl-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; align-items: flex-end; }
+.ctrl {
+  display: flex; flex-direction: column; gap: 3px; min-width: 58px;
+}
+.ctrl label {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--fg2);
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.ctrl input[type="range"] {
+  -webkit-appearance: none; width: 100%; height: 4px; background: var(--bg4);
+  border-radius: 2px; outline: none;
+}
+.ctrl input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; border: 2px solid var(--bg);
+}
+.ctrl .val {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--fg3);
+  text-align: center; min-height: 12px;
+}
+select {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 6px;
+  background: var(--bg4); color: var(--fg); border: 1px solid var(--border);
+  border-radius: var(--radius); outline: none; cursor: pointer;
+}
+select:focus { border-color: var(--accent); }
+
+.scope-wrap {
+  height: 60px; background: var(--bg2); border-radius: var(--radius);
+  border: 1px solid var(--border); margin-bottom: 8px; overflow: hidden;
+}
+.scope-wrap canvas { width: 100%; height: 100%; display: block; }
+
+.bottom-section { background: var(--bg); border-top: 1px solid var(--border); }
+
+.keyboard {
+  display: flex; height: 80px; position: relative; user-select: none;
+  padding: 0 2px;
+}
+.key {
+  position: relative; border: 1px solid var(--border); border-top: none;
+  cursor: pointer; transition: background 0.05s; flex: 1;
+}
+.key.white { background: #1a1e26; z-index: 0; border-radius: 0 0 4px 4px; }
+.key.white:hover { background: #252a35; }
+.key.white.active { background: var(--accent); }
+.key.black {
+  background: #0c0e12; width: 60%; flex: none; margin-left: -30%; margin-right: -30%;
+  z-index: 1; height: 55%; border-radius: 0 0 3px 3px; border: 1px solid #000;
+}
+.key.black:hover { background: #1a1e26; }
+.key.black.active { background: #2563eb; }
+.key .note-label {
+  position: absolute; bottom: 3px; left: 0; right: 0; text-align: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--fg3);
+  pointer-events: none;
+}
+.key.black .note-label { color: #444; bottom: 2px; }
+
+.midi-bar {
+  display: flex; align-items: center; gap: 8px; padding: 6px 16px;
+  background: var(--bg3); border-bottom: 1px solid var(--border);
+}
+.midi-drop {
+  padding: 4px 12px; border: 1px dashed var(--border); border-radius: 4px;
+  cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--fg2); transition: all 0.1s; white-space: nowrap;
+}
+.midi-drop:hover, .midi-drop.over { border-color: var(--accent); color: var(--accent); }
+.midi-drop.loaded { border-style: solid; border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.midi-ctrl { display: flex; align-items: center; gap: 4px; }
+.midi-ctrl label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--fg2); }
+.midi-ctrl input[type="number"] {
+  width: 50px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+  padding: 3px 4px; background: var(--bg4); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 4px; outline: none; text-align: center;
+}
+.midi-ctrl input[type="number"]:focus { border-color: var(--accent); }
+.midi-btn { font-size: 11px !important; padding: 4px 10px !important; }
+.midi-info { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--fg3); white-space: nowrap; overflow: hidden; }
+.midi-progress { flex: 1; height: 8px; background: var(--bg4); border-radius: 4px; min-width: 60px; overflow: hidden; cursor: pointer; }
+.midi-bar-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 4px; pointer-events: none; }
+.key.midi-active { background: var(--green) !important; }
+
+.midi-roll-wrap {
+  display: none; height: 120px; background: var(--bg2); border-bottom: 1px solid var(--border);
+  position: relative; overflow: hidden; cursor: pointer;
+}
+.midi-roll-wrap.show { display: block; }
+#midiRoll { width: 100%; height: 100%; display: block; }
+
+.controls-bar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: var(--bg2); border-top: 1px solid var(--border);
+}
+.btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500;
+  padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg3); color: var(--fg); cursor: pointer; transition: all 0.1s;
+}
+.btn:hover { border-color: var(--accent); color: #fff; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+.btn.rec { border-color: var(--red); color: var(--red); }
+.btn.rec.active { background: var(--red); color: #fff; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+.spacer { flex: 1; }
+.status { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--fg2); }
+
+.full-width { grid-column: 1 / -1; }
+.toggle-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.toggle {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; padding: 3px 8px;
+  border: 1px solid var(--border); border-radius: 3px; background: var(--bg4);
+  color: var(--fg2); cursor: pointer; transition: all 0.1s;
+}
+.toggle.on { border-color: var(--accent); color: var(--accent); background: rgba(74,158,255,0.1); }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>NZR SYNTH</h1>
+  <div class="sep"></div>
+  <div class="info">Keys: A-L = C3-C4 &middot; Z/X = Octave &middot; R = Record &middot; E = Export</div>
+</div>
+
+<div class="midi-bar">
+  <div class="midi-drop" id="midiDrop">Drop MIDI</div>
+  <input type="file" id="midiFile" accept=".mid,.midi" style="display:none">
+  <div class="midi-ctrl">
+    <label>BPM</label>
+    <input type="number" id="midiBpm" value="120" min="40" max="300" step="1">
+  </div>
+  <button class="btn midi-btn" id="midiPlay" disabled>&#9654; Play</button>
+  <button class="btn midi-btn" id="midiStop" disabled>&#9632; Stop</button>
+  <button class="btn midi-btn" id="midiLoop">Loop</button>
+  <div class="midi-info" id="midiInfo"></div>
+  <div class="midi-progress"><div class="midi-bar-fill" id="midiProgress"></div></div>
+</div>
+<div class="midi-roll-wrap" id="midiRollWrap">
+  <canvas id="midiRoll"></canvas>
+</div>
+
+<div class="panels">
+  <!-- OSC A -->
+  <div class="panel">
+    <div class="panel-title"><div class="dot" style="background:var(--accent)"></div>OSC A</div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Wave</label><select id="oscAWave"><option>sawtooth</option><option>square</option><option>sine</option><option>triangle</option></select></div>
+      <div class="ctrl"><label>Octave</label><input type="range" id="oscAOct" min="-2" max="2" value="0" step="1"><div class="val" id="oscAOctV">0</div></div>
+      <div class="ctrl"><label>Semi</label><input type="range" id="oscASemi" min="-12" max="12" value="0" step="1"><div class="val" id="oscASemiV">0</div></div>
+      <div class="ctrl"><label>Fine</label><input type="range" id="oscAFine" min="-100" max="100" value="0" step="1"><div class="val" id="oscAFineV">0ct</div></div>
+      <div class="ctrl"><label>Level</label><input type="range" id="oscALvl" min="0" max="100" value="80" step="1"><div class="val" id="oscALvlV">80%</div></div>
+    </div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Unison</label><input type="range" id="oscAUni" min="1" max="7" value="1" step="1"><div class="val" id="oscAUniV">1</div></div>
+      <div class="ctrl"><label>Detune</label><input type="range" id="oscADet" min="0" max="100" value="15" step="1"><div class="val" id="oscADetV">15ct</div></div>
+      <div class="ctrl"><label>Width</label><input type="range" id="oscAWid" min="0" max="100" value="100" step="1"><div class="val" id="oscAWidV">100%</div></div>
+    </div>
+  </div>
+
+  <!-- OSC B -->
+  <div class="panel">
+    <div class="panel-title"><div class="dot" style="background:var(--orange)"></div>OSC B</div>
+    <div class="toggle-row"><button class="toggle on" id="oscBOn">ON</button></div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Wave</label><select id="oscBWave"><option>sawtooth</option><option>square</option><option>sine</option><option>triangle</option></select></div>
+      <div class="ctrl"><label>Octave</label><input type="range" id="oscBOct" min="-2" max="2" value="0" step="1"><div class="val" id="oscBOctV">0</div></div>
+      <div class="ctrl"><label>Semi</label><input type="range" id="oscBSemi" min="-12" max="12" value="7" step="1"><div class="val" id="oscBSemiV">7</div></div>
+      <div class="ctrl"><label>Fine</label><input type="range" id="oscBFine" min="-100" max="100" value="0" step="1"><div class="val" id="oscBFineV">0ct</div></div>
+      <div class="ctrl"><label>Level</label><input type="range" id="oscBLvl" min="0" max="100" value="60" step="1"><div class="val" id="oscBLvlV">60%</div></div>
+    </div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>FM Depth</label><input type="range" id="fmDepth" min="0" max="2000" value="0" step="10"><div class="val" id="fmDepthV">0 Hz</div></div>
+      <div class="ctrl"><label>FM → A</label><select id="fmMode"><option value="off">Off</option><option value="on">On</option></select></div>
+    </div>
+  </div>
+
+  <!-- SUB + NOISE -->
+  <div class="panel">
+    <div class="panel-title"><div class="dot" style="background:var(--green)"></div>SUB / NOISE</div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Sub Wave</label><select id="subWave"><option>sine</option><option>square</option><option>triangle</option></select></div>
+      <div class="ctrl"><label>Sub Lvl</label><input type="range" id="subLvl" min="0" max="100" value="0" step="1"><div class="val" id="subLvlV">0%</div></div>
+      <div class="ctrl"><label>Sub Oct</label><input type="range" id="subOct" min="-2" max="0" value="-1" step="1"><div class="val" id="subOctV">-1</div></div>
+    </div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Noise Lvl</label><input type="range" id="noiseLvl" min="0" max="100" value="0" step="1"><div class="val" id="noiseLvlV">0%</div></div>
+    </div>
+  </div>
+
+  <!-- FILTER -->
+  <div class="panel">
+    <div class="panel-title"><div class="dot" style="background:var(--purple)"></div>FILTER</div>
+    <div class="toggle-row"><button class="toggle on" id="filtOn">ON</button></div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Type</label><select id="filtType"><option value="lowpass">LP</option><option value="highpass">HP</option><option value="bandpass">BP</option><option value="notch">Notch</option></select></div>
+      <div class="ctrl" style="flex:2"><label>Cutoff</label><input type="range" id="filtCut" min="20" max="18000" value="4000" step="1"><div class="val" id="filtCutV">4000 Hz</div></div>
+      <div class="ctrl"><label>Reso</label><input type="range" id="filtRes" min="0" max="30" value="1" step="0.1"><div class="val" id="filtResV">1.0</div></div>
+    </div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Drive</label><input type="range" id="filtDrive" min="0" max="100" value="0" step="1"><div class="val" id="filtDriveV">0%</div></div>
+      <div class="ctrl"><label>Env Amt</label><input type="range" id="filtEnvAmt" min="-100" max="100" value="0" step="1"><div class="val" id="filtEnvAmtV">0%</div></div>
+      <div class="ctrl"><label>LFO Amt</label><input type="range" id="filtLfoAmt" min="0" max="100" value="0" step="1"><div class="val" id="filtLfoAmtV">0%</div></div>
+    </div>
+  </div>
+
+  <!-- ENVELOPE -->
+  <div class="panel">
+    <div class="panel-title"><div class="dot" style="background:var(--red)"></div>AMP ENVELOPE</div>
+    <div class="scope-wrap"><canvas id="envCanvas"></canvas></div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Attack</label><input type="range" id="envA" min="0" max="2000" value="5" step="1"><div class="val" id="envAV">5ms</div></div>
+      <div class="ctrl"><label>Decay</label><input type="range" id="envD" min="0" max="2000" value="200" step="1"><div class="val" id="envDV">200ms</div></div>
+      <div class="ctrl"><label>Sustain</label><input type="range" id="envS" min="0" max="100" value="70" step="1"><div class="val" id="envSV">70%</div></div>
+      <div class="ctrl"><label>Release</label><input type="range" id="envR" min="0" max="3000" value="300" step="1"><div class="val" id="envRV">300ms</div></div>
+    </div>
+  </div>
+
+  <!-- LFO -->
+  <div class="panel">
+    <div class="panel-title"><div class="dot" style="background:var(--orange)"></div>LFO</div>
+    <div class="scope-wrap"><canvas id="lfoCanvas"></canvas></div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Shape</label><select id="lfoShape"><option>sine</option><option>triangle</option><option>sawtooth</option><option>square</option></select></div>
+      <div class="ctrl" style="flex:1.5"><label>Rate</label><input type="range" id="lfoRate" min="0.1" max="30" value="2" step="0.1"><div class="val" id="lfoRateV">2.0 Hz</div></div>
+      <div class="ctrl"><label>→ Filter</label><input type="range" id="lfoFilt" min="0" max="100" value="0" step="1"><div class="val" id="lfoFiltV">0%</div></div>
+      <div class="ctrl"><label>→ Pitch</label><input type="range" id="lfoPitch" min="0" max="100" value="0" step="1"><div class="val" id="lfoPitchV">0%</div></div>
+      <div class="ctrl"><label>→ FM</label><input type="range" id="lfoFM" min="0" max="100" value="0" step="1"><div class="val" id="lfoFMV">0%</div></div>
+    </div>
+  </div>
+
+  <!-- DISTORTION -->
+  <div class="panel">
+    <div class="panel-title"><div class="dot" style="background:var(--red)"></div>DISTORTION</div>
+    <div class="toggle-row"><button class="toggle" id="distOn">OFF</button></div>
+    <div class="ctrl-row">
+      <div class="ctrl"><label>Mode</label><select id="distMode"><option value="soft">Soft Clip</option><option value="hard">Hard Clip</option><option value="fold">Foldback</option><option value="rectify">Rectify</option><option value="bitcrush">Bitcrush</option></select></div>
+      <div class="ctrl" style="flex:1.5"><label>Drive</label><input type="range" id="distDrive" min="0" max="100" value="30" step="1"><div class="val" id="distDriveV">30%</div></div>
+      <div class="ctrl"><label>Mix</label><input type="range" id="distMix" min="0" max="100" value="100" step="1"><div class="val" id="distMixV">100%</div></div>
+    </div>
+  </div>
+
+  <!-- MASTER -->
+  <div class="panel">
+    <div class="panel-title"><div class="dot" style="background:#fff"></div>MASTER</div>
+    <div class="scope-wrap"><canvas id="scopeCanvas"></canvas></div>
+    <div class="ctrl-row">
+      <div class="ctrl" style="flex:2"><label>Volume</label><input type="range" id="masterVol" min="0" max="100" value="70" step="1"><div class="val" id="masterVolV">70%</div></div>
+      <div class="ctrl"><label>Octave</label><input type="range" id="masterOct" min="1" max="7" value="3" step="1"><div class="val" id="masterOctV">3</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- KEYBOARD -->
+<div class="bottom-section">
+  <div class="keyboard" id="keyboard"></div>
+  <div class="controls-bar">
+    <button class="btn rec" id="btnRec">REC</button>
+    <button class="btn primary" id="btnExport">Export WAV</button>
+    <div class="spacer"></div>
+    <div class="status" id="status">Ready</div>
+  </div>
+</div>
+
+<script type="module">
+import { SynthEngine } from './js/synth-engine.js';
+import { parseMidiFile, DEFAULT_BPM } from './js/midi-parser.js';
+import { MidiPlayer } from './js/midi-player.js';
+import { buildNoteRects, drawMidiRoll } from './js/piano-roll.js';
+import { encodeWav24 } from './js/wav-encoder.js';
+
+const $ = id => document.getElementById(id);
+const val = id => parseFloat($(id).value);
+
+const synth = new SynthEngine();
+let baseOctave = 3;
+let midiData = null;
+let recorder = null, recChunks = [], isRecording = false;
+
+function readSynthParams() {
+  return {
+    oscA: { wave: $('oscAWave').value, level: val('oscALvl') / 100, unison: val('oscAUni'), detune: val('oscADet'), oct: val('oscAOct'), semi: val('oscASemi'), fine: val('oscAFine'), width: val('oscAWid') / 100 },
+    oscB: { on: $('oscBOn').classList.contains('on'), wave: $('oscBWave').value, oct: val('oscBOct'), semi: val('oscBSemi'), fine: val('oscBFine'), level: val('oscBLvl') / 100 },
+    fm: { on: $('fmMode').value === 'on', depth: val('fmDepth') },
+    sub: { wave: $('subWave').value, level: val('subLvl') / 100, oct: val('subOct') },
+    noise: { level: val('noiseLvl') / 100 },
+    filter: { on: $('filtOn').classList.contains('on'), type: $('filtType').value, cutoff: val('filtCut'), resonance: val('filtRes'), drive: val('filtDrive') / 100, envAmt: val('filtEnvAmt') / 100 },
+    dist: { on: $('distOn').classList.contains('on'), mode: $('distMode').value, drive: val('distDrive') / 100 },
+    env: { a: val('envA') / 1000, d: val('envD') / 1000, s: val('envS') / 100, r: val('envR') / 1000 },
+    lfo: { filt: val('lfoFilt') / 100, pitch: val('lfoPitch') / 100, fm: val('lfoFM') / 100 }
+  };
+}
+
+function ensureAudio() {
+  if (!synth.initialized) {
+    synth.init($('lfoShape').value, val('lfoRate'));
+    synth.setMasterVolume(val('masterVol') / 100);
+    drawScopes();
+  }
+  synth.resume();
+}
+
+function noteOn(midi) { ensureAudio(); synth.noteOn(midi, readSynthParams()); }
+function noteOff(midi) { synth.noteOff(midi, readSynthParams().env.r); }
+
+function highlightKey(midi, on) {
+  const el = $('keyboard').querySelector(`[data-midi="${midi}"]`);
+  if (el) { el.classList.toggle('active', on); el.classList.toggle('midi-active', on); }
+}
+
+function clearAllKeys() {
+  document.querySelectorAll('.key.active, .key.midi-active').forEach(k => {
+    k.classList.remove('active', 'midi-active');
+  });
+}
+
+// ===== KEYBOARD =====
+const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const keyMap = { a:0, w:1, s:2, e:3, d:4, f:5, t:6, g:7, y:8, h:9, u:10, j:11, k:12 };
+
+function buildKeyboard() {
+  const kb = $('keyboard');
+  kb.innerHTML = '';
+  for (let i = 0; i < 25; i++) {
+    const noteInOctave = i % 12;
+    const isBlack = [1,3,6,8,10].includes(noteInOctave);
+    const midi = 12 + baseOctave * 12 + i;
+    const key = document.createElement('div');
+    key.className = 'key ' + (isBlack ? 'black' : 'white');
+    key.dataset.midi = midi;
+    if (!isBlack && (noteInOctave === 0 || noteInOctave === 5)) {
+      key.innerHTML = `<span class="note-label">${noteNames[noteInOctave]}${Math.floor(midi / 12) - 1}</span>`;
+    }
+    key.addEventListener('mousedown', e => { e.preventDefault(); noteOn(midi); key.classList.add('active'); });
+    key.addEventListener('mouseup', () => { noteOff(midi); key.classList.remove('active'); });
+    key.addEventListener('mouseleave', () => { if (key.classList.contains('active')) { noteOff(midi); key.classList.remove('active'); } });
+    kb.appendChild(key);
+  }
+}
+buildKeyboard();
+
+const heldKeys = {};
+document.addEventListener('keydown', e => {
+  if (e.repeat || e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (k === 'z') { baseOctave = Math.max(1, baseOctave - 1); $('masterOct').value = baseOctave; $('masterOctV').textContent = baseOctave; buildKeyboard(); return; }
+  if (k === 'x') { baseOctave = Math.min(7, baseOctave + 1); $('masterOct').value = baseOctave; $('masterOctV').textContent = baseOctave; buildKeyboard(); return; }
+  if (k === ' ') {
+    e.preventDefault();
+    if (player.playing) {
+      player.pause();
+      $('midiPlay').disabled = false;
+    } else if (player.loaded) {
+      player.playFrom(player.pausedAt);
+      $('midiPlay').disabled = true;
+    }
+    return;
+  }
+  if (k === 'r') { toggleRec(); return; }
+  if (k === 'e' && !isRecording) { exportWav(); return; }
+  if (k in keyMap) {
+    e.preventDefault();
+    const midi = 12 + baseOctave * 12 + keyMap[k];
+    if (!heldKeys[k]) {
+      heldKeys[k] = midi;
+      noteOn(midi);
+      highlightKey(midi, true);
+    }
+  }
+});
+document.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  if (heldKeys[k] !== undefined) {
+    const midi = heldKeys[k];
+    noteOff(midi);
+    highlightKey(midi, false);
+    delete heldKeys[k];
+  }
+});
+
+// ===== SLIDER BINDINGS =====
+function bindSlider(id, suffix, transform) {
+  const el = $(id), vEl = $(id + 'V');
+  if (!el || !vEl) return;
+  el.addEventListener('input', () => {
+    const v = parseFloat(el.value);
+    vEl.textContent = transform ? transform(v) : v + (suffix || '');
+  });
+}
+bindSlider('oscAOct'); bindSlider('oscASemi');
+bindSlider('oscAFine', 'ct'); bindSlider('oscALvl', '%');
+bindSlider('oscAUni'); bindSlider('oscADet', 'ct'); bindSlider('oscAWid', '%');
+bindSlider('oscBOct'); bindSlider('oscBSemi');
+bindSlider('oscBFine', 'ct'); bindSlider('oscBLvl', '%');
+bindSlider('fmDepth', ' Hz');
+bindSlider('subLvl', '%'); bindSlider('subOct');
+bindSlider('noiseLvl', '%');
+bindSlider('filtCut', ' Hz'); bindSlider('filtRes', '', v => v.toFixed(1));
+bindSlider('filtDrive', '%'); bindSlider('filtEnvAmt', '%'); bindSlider('filtLfoAmt', '%');
+bindSlider('envA', 'ms'); bindSlider('envD', 'ms'); bindSlider('envS', '%'); bindSlider('envR', 'ms');
+bindSlider('lfoRate', '', v => v.toFixed(1) + ' Hz'); bindSlider('lfoFilt', '%');
+bindSlider('lfoPitch', '%'); bindSlider('lfoFM', '%');
+bindSlider('distDrive', '%'); bindSlider('distMix', '%');
+bindSlider('masterVol', '%');
+
+$('masterVol').addEventListener('input', () => synth.setMasterVolume(val('masterVol') / 100));
+$('masterOct').addEventListener('input', () => {
+  baseOctave = parseInt($('masterOct').value);
+  $('masterOctV').textContent = baseOctave;
+  buildKeyboard();
+});
+$('lfoShape').addEventListener('change', () => { synth.setLfoShape($('lfoShape').value); drawLFO(); });
+$('lfoRate').addEventListener('input', () => synth.setLfoRate(val('lfoRate')));
+
+['oscBOn', 'filtOn', 'distOn'].forEach(id => {
+  $(id).addEventListener('click', () => {
+    $(id).classList.toggle('on');
+    $(id).textContent = $(id).classList.contains('on') ? 'ON' : 'OFF';
+  });
+});
+
+// ===== ENVELOPE / LFO / SCOPE VISUALIZATION =====
+function drawEnvelope() {
+  const c = $('envCanvas'), ctx = c.getContext('2d');
+  const rect = c.getBoundingClientRect();
+  c.width = rect.width * devicePixelRatio;
+  c.height = rect.height * devicePixelRatio;
+  const w = c.width, h = c.height;
+  ctx.clearRect(0, 0, w, h);
+  const a = val('envA') / 2000, d = val('envD') / 2000, s = val('envS') / 100, r = val('envR') / 3000;
+  const total = a + d + 0.2 + r;
+  const xA = a / total * w, xD = (a + d) / total * w, xS = (a + d + 0.2) / total * w, xR = w;
+  ctx.strokeStyle = '#ef5350'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, h);
+  ctx.lineTo(xA, h * 0.05);
+  ctx.lineTo(xD, h * (1 - s) * 0.95 + h * 0.05);
+  ctx.lineTo(xS, h * (1 - s) * 0.95 + h * 0.05);
+  ctx.lineTo(xR, h); ctx.stroke();
+  ctx.fillStyle = 'rgba(239,83,80,0.08)';
+  ctx.beginPath(); ctx.moveTo(0, h);
+  ctx.lineTo(xA, h * 0.05);
+  ctx.lineTo(xD, h * (1 - s) * 0.95 + h * 0.05);
+  ctx.lineTo(xS, h * (1 - s) * 0.95 + h * 0.05);
+  ctx.lineTo(xR, h); ctx.closePath(); ctx.fill();
+}
+['envA', 'envD', 'envS', 'envR'].forEach(id => $(id).addEventListener('input', drawEnvelope));
+
+function drawLFO() {
+  const c = $('lfoCanvas'), ctx = c.getContext('2d');
+  const rect = c.getBoundingClientRect();
+  c.width = rect.width * devicePixelRatio;
+  c.height = rect.height * devicePixelRatio;
+  const w = c.width, h = c.height, mid = h / 2;
+  ctx.clearRect(0, 0, w, h);
+  const shape = $('lfoShape').value;
+  ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let x = 0; x < w; x++) {
+    const t = (x / w) * 3 * Math.PI * 2;
+    let y;
+    switch (shape) {
+      case 'sine': y = Math.sin(t); break;
+      case 'triangle': y = 2 * Math.abs(2 * (t / (2 * Math.PI) % 1) - 1) - 1; break;
+      case 'sawtooth': y = 2 * (t / (2 * Math.PI) % 1) - 1; break;
+      case 'square': y = Math.sin(t) >= 0 ? 1 : -1; break;
+    }
+    const py = mid - y * mid * 0.8;
+    x === 0 ? ctx.moveTo(x, py) : ctx.lineTo(x, py);
+  }
+  ctx.stroke();
+}
+
+function drawScopes() {
+  if (!synth.scopeAnalyser) { requestAnimationFrame(drawScopes); return; }
+  const c = $('scopeCanvas'), ctx = c.getContext('2d');
+  const rect = c.getBoundingClientRect();
+  c.width = rect.width * devicePixelRatio;
+  c.height = rect.height * devicePixelRatio;
+  const w = c.width, h = c.height, mid = h / 2;
+  const buf = new Float32Array(synth.scopeAnalyser.fftSize);
+  synth.scopeAnalyser.getFloatTimeDomainData(buf);
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
+  ctx.strokeStyle = '#4a9eff'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const step = buf.length / w;
+  for (let x = 0; x < w; x++) {
+    const y = mid - buf[Math.floor(x * step)] * mid * 0.9;
+    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  requestAnimationFrame(drawScopes);
+}
+
+drawEnvelope();
+drawLFO();
+new ResizeObserver(() => { drawEnvelope(); drawLFO(); }).observe(document.body);
+
+// ===== RECORDING + EXPORT =====
+function toggleRec() {
+  ensureAudio();
+  if (!isRecording) {
+    recChunks = [];
+    recorder = new MediaRecorder(synth.recDest.stream);
+    recorder.ondataavailable = e => { if (e.data.size > 0) recChunks.push(e.data); };
+    recorder.start();
+    isRecording = true;
+    $('btnRec').classList.add('active'); $('btnRec').textContent = 'STOP';
+    $('status').textContent = 'Recording...';
+  } else {
+    recorder.stop();
+    isRecording = false;
+    $('btnRec').classList.remove('active'); $('btnRec').textContent = 'REC';
+    $('status').textContent = 'Recording saved. Press E to export.';
+  }
+}
+$('btnRec').addEventListener('click', toggleRec);
+
+async function exportWav() {
+  if (recChunks.length === 0) { $('status').textContent = 'Nothing recorded. Press R first.'; return; }
+  $('status').textContent = 'Exporting...';
+  const blob = new Blob(recChunks, { type: 'audio/webm' });
+  const arrayBuf = await blob.arrayBuffer();
+  try {
+    const tmpCtx = new OfflineAudioContext(2, 1, 48000);
+    const decoded = await tmpCtx.decodeAudioData(arrayBuf);
+    const offCtx = new OfflineAudioContext(decoded.numberOfChannels, decoded.length, decoded.sampleRate);
+    const src = offCtx.createBufferSource();
+    src.buffer = decoded; src.connect(offCtx.destination); src.start();
+    const rendered = await offCtx.startRendering();
+    const wavBuf = encodeWav24(rendered);
+    const name = 'nzr_synth_' + Date.now() + '.wav';
+    window.parent.postMessage({ type: 'save-wav', buffer: wavBuf, name }, '*');
+    $('status').textContent = 'Exported!';
+  } catch (err) {
+    $('status').textContent = 'Export error: ' + err.message;
+  }
+}
+$('btnExport').addEventListener('click', exportWav);
+
+// ===== MIDI PLAYER =====
+function redrawRoll(cursorSec) {
+  if (!midiData) return;
+  drawMidiRoll($('midiRoll'), midiData.rects, midiData.noteRange, midiData.durSec, parseFloat($('midiBpm').value) || DEFAULT_BPM, cursorSec);
+}
+
+const player = new MidiPlayer({
+  onNoteOn: (note) => { noteOn(note); highlightKey(note, true); },
+  onNoteOff: (note) => { noteOff(note); highlightKey(note, false); },
+  onFrame: (elapsed) => {
+    $('midiProgress').style.width = Math.min(100, (elapsed / player.duration) * 100) + '%';
+    redrawRoll(elapsed);
+  },
+  onEnd: () => {
+    $('midiPlay').disabled = false;
+    $('midiProgress').style.width = '100%';
+    redrawRoll();
+  },
+  onStop: () => {
+    synth.silenceAll();
+    clearAllKeys();
+  }
+});
+
+function recalcTiming() {
+  if (!midiData) return;
+  const bpm = parseFloat($('midiBpm').value) || DEFAULT_BPM;
+  const tickSec = 60.0 / (bpm * midiData.parsed.division);
+  midiData.scheduled = midiData.parsed.events.map(ev => ({ timeSec: ev.ticks * tickSec, type: ev.type, note: ev.note, vel: ev.vel }));
+  midiData.durSec = midiData.scheduled.length > 0 ? midiData.scheduled[midiData.scheduled.length - 1].timeSec + 0.5 : 0;
+  const { rects, noteRange } = buildNoteRects(midiData.scheduled, midiData.durSec);
+  midiData.rects = rects;
+  midiData.noteRange = noteRange;
+  player.load(midiData.scheduled, rects, midiData.durSec);
+}
+
+function loadMidiFromBuffer(arrayBuf, name, overrideBpm) {
+  const parsed = parseMidiFile(arrayBuf);
+  const bpm = overrideBpm || parsed.bpm;
+  $('midiBpm').value = bpm;
+
+  midiData = { parsed, scheduled: [], rects: [], noteRange: { lo: 48, hi: 79 }, durSec: 0 };
+  recalcTiming();
+
+  const noteOns = parsed.events.filter(ev => ev.type === 'on');
+  const notes = noteOns.map(ev => ev.note);
+  const lo = Math.min(...notes), hi = Math.max(...notes);
+  const midNote = Math.round((lo + hi) / 2);
+  baseOctave = Math.max(1, Math.min(6, Math.floor(midNote / 12) - 1));
+  $('masterOct').value = baseOctave;
+  $('masterOctV').textContent = baseOctave;
+  buildKeyboard();
+
+  const shortName = (name || 'midi').replace(/\.midi?$/i, '');
+  const dispName = shortName.length > 30 ? shortName.substring(0, 28) + '..' : shortName;
+  $('midiInfo').textContent = `${noteOns.length} notes · ${noteNames[lo%12]}${Math.floor(lo/12)-1}-${noteNames[hi%12]}${Math.floor(hi/12)-1} · ${midiData.durSec.toFixed(1)}s`;
+  $('midiDrop').textContent = dispName;
+  $('midiDrop').classList.add('loaded');
+  $('midiPlay').disabled = false;
+  $('midiStop').disabled = false;
+  $('midiRollWrap').classList.add('show');
+  redrawRoll();
+}
+
+function loadMidi(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { loadMidiFromBuffer(reader.result, file.name); }
+    catch (err) { $('midiInfo').textContent = 'Error: ' + err.message; console.error(err); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// MIDI drop handlers
+$('midiDrop').addEventListener('click', () => $('midiFile').click());
+$('midiDrop').addEventListener('dragover', e => { e.preventDefault(); $('midiDrop').classList.add('over'); });
+$('midiDrop').addEventListener('dragleave', () => $('midiDrop').classList.remove('over'));
+$('midiDrop').addEventListener('drop', e => { e.preventDefault(); $('midiDrop').classList.remove('over'); if (e.dataTransfer.files[0]) loadMidi(e.dataTransfer.files[0]); });
+$('midiFile').addEventListener('change', e => { if (e.target.files[0]) loadMidi(e.target.files[0]); });
+
+$('midiBpm').addEventListener('input', () => {
+  const wasPlaying = player.playing;
+  if (wasPlaying) player.stop();
+  recalcTiming();
+  redrawRoll();
+  if (midiData) $('midiInfo').textContent = $('midiInfo').textContent.replace(/[\d.]+s$/, midiData.durSec.toFixed(1) + 's');
+  if (wasPlaying) player.playFrom(0);
+});
+
+$('midiPlay').addEventListener('click', () => { player.playFrom(player.pausedAt); $('midiPlay').disabled = true; });
+$('midiStop').addEventListener('click', () => {
+  player.stop();
+  $('midiPlay').disabled = !player.loaded;
+  $('midiProgress').style.width = '0%';
+  redrawRoll();
+});
+
+$('midiRoll').addEventListener('click', e => {
+  if (!midiData) return;
+  const rect = e.target.getBoundingClientRect();
+  player.seekTo(Math.max(0, ((e.clientX - rect.left) / rect.width) * midiData.durSec));
+  $('midiPlay').disabled = true;
+});
+
+$('midiProgress').parentElement.addEventListener('click', e => {
+  if (!midiData) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  player.seekTo(Math.max(0, ((e.clientX - rect.left) / rect.width) * midiData.durSec));
+  $('midiPlay').disabled = true;
+});
+
+$('midiLoop').addEventListener('click', () => {
+  player.looping = !player.looping;
+  const btn = $('midiLoop');
+  if (player.looping) { btn.style.borderColor = '#4a9eff'; btn.style.color = '#4a9eff'; btn.style.background = 'rgba(74,158,255,0.1)'; }
+  else { btn.style.borderColor = ''; btn.style.color = ''; btn.style.background = ''; }
+});
+
+// Tauri/parent integration: receive MIDI via postMessage
+window.addEventListener('message', e => {
+  if (e.data.type === 'load-midi' && e.data.data) {
+    ensureAudio();
+    const arrayBuf = e.data.data instanceof ArrayBuffer ? e.data.data : e.data.data.buffer.slice(e.data.data.byteOffset, e.data.data.byteOffset + e.data.data.byteLength);
+    try { loadMidiFromBuffer(arrayBuf, e.data.name, e.data.bpm); }
+    catch (err) { $('midiInfo').textContent = 'Error: ' + err.message; }
+  }
+});
+
+new ResizeObserver(() => { if (midiData) redrawRoll(); }).observe($('midiRollWrap'));
+</script>
+</body>
+</html>

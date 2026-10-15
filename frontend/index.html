@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NZR Tools</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #0c0e12; --bg2: #13161c; --bg3: #1a1e26; --bg4: #222831;
+  --fg: #c8cdd5; --fg2: #6b7280; --fg3: #3d4450;
+  --accent: #4a9eff; --green: #2dd4a0; --orange: #f59e0b; --red: #ef5350;
+  --border: #252a35;
+  font-family: 'Inter', system-ui, sans-serif; color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg); color: var(--fg); display: flex; flex-direction: column; }
+
+.tab-bar {
+  display: flex; align-items: stretch; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0; user-select: none;
+}
+.tab {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+  padding: 8px 20px; cursor: pointer; color: var(--fg3); letter-spacing: 1px;
+  border-bottom: 2px solid transparent; transition: all 0.12s;
+}
+.tab:hover { color: var(--fg2); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-spacer { flex: 1; }
+.tab-info {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--fg3);
+  padding: 8px 16px; display: flex; align-items: center; gap: 8px;
+}
+.tab-info .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+.tab-content { flex: 1; position: relative; overflow: hidden; }
+.tab-page { position: absolute; inset: 0; overflow-y: auto; display: none; }
+.tab-page.active { display: block; }
+iframe { width: 100%; height: 100%; border: none; background: var(--bg); }
+
+.drop-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(12,14,18,0.85); backdrop-filter: blur(8px);
+  justify-content: center; align-items: center;
+}
+.drop-overlay.show { display: flex; }
+.drop-overlay-inner {
+  text-align: center; padding: 48px 64px; border: 2px dashed var(--accent);
+  border-radius: 16px; background: rgba(74,158,255,0.05);
+}
+.drop-overlay-icon { font-size: 48px; margin-bottom: 12px; }
+.drop-overlay-text {
+  font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600;
+  color: var(--accent); letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <div class="tab active" data-tab="synth">SYNTH</div>
+  <div class="tab" data-tab="crusher">CRUSHER</div>
+  <div class="tab-spacer"></div>
+  <div class="tab-info"><div class="dot"></div><span id="appStatus">Ready</span></div>
+</div>
+
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-overlay-inner">
+    <div class="drop-overlay-icon">&#128196;</div>
+    <div class="drop-overlay-text" id="dropText">Drop MIDI or WAV</div>
+  </div>
+</div>
+
+<div class="tab-content">
+  <div class="tab-page active" id="page-synth">
+    <iframe id="frame-synth" src="nzr-synth.html"></iframe>
+  </div>
+  <div class="tab-page" id="page-crusher">
+    <iframe id="frame-crusher" src="nzr-crusher.html"></iframe>
+  </div>
+</div>
+
+<script>
+// Tab switching
+const tabs = document.querySelectorAll('.tab');
+const pages = document.querySelectorAll('.tab-page');
+
+function switchTab(name) {
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  pages.forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
+}
+tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+// Tauri IPC
+const { invoke } = window.__TAURI__.core;
+
+function b64ToArrayBuffer(b64) {
+  const bin = atob(b64);
+  const buf = new ArrayBuffer(bin.length);
+  const u8 = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return buf;
+}
+
+function arrayBufferToB64(buf) {
+  const u8 = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+  return btoa(bin);
+}
+
+// Load CLI args after iframes ready
+let synthReady = false, crusherReady = false;
+document.getElementById('frame-synth').addEventListener('load', () => { synthReady = true; tryLoadPending(); });
+document.getElementById('frame-crusher').addEventListener('load', () => { crusherReady = true; tryLoadPending(); });
+
+async function tryLoadPending() {
+  if (!synthReady || !crusherReady) return;
+  try {
+    const pending = await invoke('get_pending');
+    if (!pending) return;
+
+    if (pending.tab) switchTab(pending.tab);
+
+    if (pending.midi) {
+      const [b64, name] = await invoke('read_file', { path: pending.midi });
+      const data = b64ToArrayBuffer(b64);
+      document.getElementById('frame-synth').contentWindow.postMessage(
+        { type: 'load-midi', data, name, bpm: pending.bpm }, '*'
+      );
+      document.getElementById('appStatus').textContent = 'MIDI: ' + name;
+      switchTab('synth');
+    }
+
+    if (pending.sample) {
+      const [b64, name] = await invoke('read_file', { path: pending.sample });
+      const data = b64ToArrayBuffer(b64);
+      document.getElementById('frame-crusher').contentWindow.postMessage(
+        { type: 'load-sample', data, name }, '*'
+      );
+      document.getElementById('appStatus').textContent = 'Sample: ' + name;
+      switchTab('crusher');
+    }
+  } catch (e) {
+    console.error('Failed to load pending files:', e);
+  }
+}
+
+// Listen for save/open requests from iframes
+window.addEventListener('message', async (e) => {
+  if (e.data.type === 'save-wav') {
+    try {
+      const b64 = arrayBufferToB64(e.data.buffer);
+      const path = await invoke('export_wav', { b64data: b64, defaultName: e.data.name });
+      if (path) {
+        document.getElementById('appStatus').textContent = 'Saved: ' + path.split(/[\\/]/).pop();
+      }
+    } catch (err) { console.error('Export error:', err); }
+  }
+});
+
+// HTML5 drag-drop with overlay (dragDropEnabled: false in tauri.conf.json)
+const dropOverlay = document.getElementById('dropOverlay');
+const dropText = document.getElementById('dropText');
+let dragCounter = 0;
+
+document.addEventListener('dragenter', (e) => {
+  e.preventDefault();
+  dragCounter++;
+  if (dragCounter === 1) {
+    const items = Array.from(e.dataTransfer?.items || []);
+    const hasFiles = items.some(i => i.kind === 'file');
+    if (hasFiles) {
+      dropText.textContent = 'Drop MIDI or WAV';
+      dropOverlay.classList.add('show');
+    }
+  }
+});
+
+document.addEventListener('dragleave', () => {
+  dragCounter--;
+  if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('show'); }
+});
+
+document.addEventListener('dragover', (e) => { e.preventDefault(); });
+
+document.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  dragCounter = 0;
+  dropOverlay.classList.remove('show');
+  const files = Array.from(e.dataTransfer?.files || []);
+  for (const file of files) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    try {
+      const data = await file.arrayBuffer();
+      if (ext === 'mid' || ext === 'midi') {
+        document.getElementById('frame-synth').contentWindow.postMessage({ type: 'load-midi', data, name: file.name }, '*');
+        switchTab('synth');
+        document.getElementById('appStatus').textContent = 'MIDI: ' + file.name;
+      } else if (ext === 'wav') {
+        document.getElementById('frame-crusher').contentWindow.postMessage({ type: 'load-sample', data, name: file.name }, '*');
+        switchTab('crusher');
+        document.getElementById('appStatus').textContent = 'Sample: ' + file.name;
+      }
+    } catch (err) { console.error('Drop error:', err); }
+  }
+});
+</script>
+</body>
+</html>

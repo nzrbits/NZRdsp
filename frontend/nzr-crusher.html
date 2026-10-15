@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NZR Crusher</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #0a0c10; --bg2: #12151b; --bg3: #1a1e27; --bg4: #242a35;
+  --fg: #e0e4eb; --fg2: #7a8494; --fg3: #3d4654;
+  --accent: #4a9eff; --warm: #f59e0b; --red: #ef5350; --green: #2dd4a0; --purple: #a78bfa;
+  --border: #252b38;
+  font-family: 'Inter', system-ui, sans-serif; color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; flex-direction: column; }
+
+.top { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.top h1 { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 800; color: var(--accent); letter-spacing: 2px; }
+.top .hint { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--fg3); margin-left: auto; }
+
+.drop {
+  margin: 16px 20px 0; padding: 28px; border: 2px dashed var(--border); border-radius: 8px;
+  text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--fg2);
+  cursor: pointer; transition: all 0.15s;
+}
+.drop:hover, .drop.over { border-color: var(--accent); color: var(--accent); background: rgba(74,158,255,0.03); }
+.drop.loaded {
+  padding: 10px 20px; text-align: left; border-style: solid; border-color: var(--border);
+  display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+}
+.drop .fname { color: var(--fg); font-weight: 700; font-size: 14px; }
+.drop .meta { color: var(--fg2); font-size: 11px; }
+input[type="file"] { display: none; }
+
+.wave-box {
+  margin: 10px 20px; height: 100px; background: var(--bg2); border-radius: 8px;
+  border: 1px solid var(--border); position: relative; overflow: hidden; display: none;
+}
+.wave-box.show { display: block; }
+.wave-box canvas { width: 100%; height: 100%; display: block; }
+.wave-box .ph { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); left: 0; display: none; pointer-events: none; }
+.sel-info {
+  position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent);
+  background: rgba(10,12,16,0.85); padding: 2px 10px; border-radius: 3px;
+  pointer-events: none; display: none; white-space: nowrap;
+}
+.sel-info.show { display: block; }
+
+.presets { display: flex; gap: 6px; padding: 12px 20px; flex-wrap: wrap; }
+.preset-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+  padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--fg2); cursor: pointer; transition: all 0.12s;
+  letter-spacing: 0.5px;
+}
+.preset-btn:hover { border-color: var(--accent); color: var(--fg); }
+.preset-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.knobs { display: flex; justify-content: center; gap: 32px; padding: 24px 20px 16px; flex-wrap: wrap; }
+.knob-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.knob-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+  color: var(--fg2); letter-spacing: 1.5px; text-transform: uppercase;
+}
+.knob-wrap { position: relative; width: 90px; height: 90px; }
+.knob-wrap canvas { width: 100%; height: 100%; cursor: pointer; }
+.knob-val {
+  position: absolute; bottom: -2px; left: 0; right: 0; text-align: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+  color: var(--fg); pointer-events: none;
+}
+
+.mode-row { display: flex; justify-content: center; gap: 6px; padding: 0 20px 16px; }
+.mode-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
+  padding: 4px 12px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--bg4); color: var(--fg3); cursor: pointer; transition: all 0.1s;
+}
+.mode-btn:hover { color: var(--fg2); }
+.mode-btn.active { border-color: var(--red); color: var(--red); background: rgba(239,83,80,0.1); }
+
+.play-bar {
+  display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+  background: var(--bg2); border-top: 1px solid var(--border); margin-top: auto;
+}
+.play-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
+  padding: 8px 24px; border-radius: 6px; border: none; cursor: pointer; transition: all 0.1s;
+}
+.play-btn.main { background: var(--accent); color: #000; }
+.play-btn.main:hover { filter: brightness(1.15); }
+.play-btn.dry { background: var(--bg4); color: var(--fg2); border: 1px solid var(--border); }
+.play-btn.dry:hover { color: var(--fg); border-color: var(--fg3); }
+.play-btn.export { background: transparent; color: var(--green); border: 1px solid var(--green); }
+.play-btn.export:hover { background: var(--green); color: #000; }
+.play-btn:disabled { opacity: 0.25; cursor: default; pointer-events: none; }
+.spacer { flex: 1; }
+.status { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--fg3); }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>NZR CRUSHER</h1>
+  <div class="hint">Space = Play &middot; D = Dry &middot; E = Export &middot; Drag waveform to select &middot; Dbl-click = reset</div>
+</div>
+
+<div class="drop" id="drop">
+  Drop WAV here or click to load
+</div>
+<input type="file" id="fileIn" accept=".wav">
+
+<div class="wave-box" id="waveBox">
+  <canvas id="waveC"></canvas>
+  <div class="ph" id="ph"></div>
+  <div class="sel-info" id="selInfo"></div>
+</div>
+
+<div class="presets" id="presets">
+  <button class="preset-btn active" data-p="clean">CLEAN</button>
+  <button class="preset-btn" data-p="warm">WARM</button>
+  <button class="preset-btn" data-p="punch">PUNCH</button>
+  <button class="preset-btn" data-p="grit">GRIT</button>
+  <button class="preset-btn" data-p="crush">CRUSH</button>
+  <button class="preset-btn" data-p="destroy">DESTROY</button>
+</div>
+
+<div class="knobs" id="knobs">
+  <div class="knob-group">
+    <div class="knob-label">Distortion</div>
+    <div class="knob-wrap"><canvas id="kDist" width="180" height="180"></canvas><div class="knob-val" id="vDist">0%</div></div>
+  </div>
+  <div class="knob-group">
+    <div class="knob-label">Compress</div>
+    <div class="knob-wrap"><canvas id="kComp" width="180" height="180"></canvas><div class="knob-val" id="vComp">0%</div></div>
+  </div>
+  <div class="knob-group">
+    <div class="knob-label">Filter</div>
+    <div class="knob-wrap"><canvas id="kFilt" width="180" height="180"></canvas><div class="knob-val" id="vFilt">100%</div></div>
+  </div>
+  <div class="knob-group">
+    <div class="knob-label">Master</div>
+    <div class="knob-wrap"><canvas id="kMast" width="180" height="180"></canvas><div class="knob-val" id="vMast">80%</div></div>
+  </div>
+</div>
+
+<div class="mode-row">
+  <button class="mode-btn active" data-m="tube">TUBE</button>
+  <button class="mode-btn" data-m="hard">HARD</button>
+  <button class="mode-btn" data-m="fold">FOLD</button>
+  <button class="mode-btn" data-m="rectify">RECTIFY</button>
+</div>
+
+<div class="play-bar">
+  <button class="play-btn main" id="btnPlay" disabled>&#9654; PLAY</button>
+  <button class="play-btn dry" id="btnDry" disabled>DRY</button>
+  <button class="play-btn export" id="btnExport" disabled>EXPORT</button>
+  <div class="spacer"></div>
+  <div class="status" id="status">Drop a sample to start</div>
+</div>
+
+<script type="module">
+import { makeDistortionCurve } from './js/distortion.js';
+import { encodeWav24 } from './js/wav-encoder.js';
+
+const $ = id => document.getElementById(id);
+let actx = null, sampleBuf = null, fileName = '', playSrc = null, isPlaying = false, animF = null;
+let distMode = 'tube';
+
+// Selection state (fractions 0-1 of full duration)
+let sel = { start: 0, end: 1 };
+let selDrag = null; // null | 'start' | 'end' | 'new'
+let selAnchor = 0;
+
+function hasSelection() { return sel.start > 0.002 || sel.end < 0.998; }
+function selStartSec() { return sel.start * sampleBuf.duration; }
+function selEndSec() { return sel.end * sampleBuf.duration; }
+function selDurSec() { return (sel.end - sel.start) * sampleBuf.duration; }
+
+function fmtTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(3);
+  return m + ':' + s.padStart(6, '0');
+}
+
+function updateSelInfo() {
+  const info = $('selInfo');
+  if (!sampleBuf || !hasSelection()) { info.classList.remove('show'); return; }
+  info.textContent = fmtTime(selStartSec()) + ' – ' + fmtTime(selEndSec()) + ' (' + selDurSec().toFixed(3) + 's)';
+  info.classList.add('show');
+}
+
+const knobs = { dist: 0, comp: 0, filt: 1, mast: 0.8 };
+const knobColors = { dist: '#ef5350', comp: '#a78bfa', filt: '#f59e0b', mast: '#4a9eff' };
+const knobIds = { dist: 'kDist', comp: 'kComp', filt: 'kFilt', mast: 'kMast' };
+const knobValIds = { dist: 'vDist', comp: 'vComp', filt: 'vFilt', mast: 'vMast' };
+
+const presets = {
+  clean:   { dist: 0,    comp: 0,    filt: 1,    mast: 0.8, mode: 'tube' },
+  warm:    { dist: 0.2,  comp: 0.3,  filt: 0.85, mast: 0.8, mode: 'tube' },
+  punch:   { dist: 0.15, comp: 0.65, filt: 0.9,  mast: 0.85, mode: 'tube' },
+  grit:    { dist: 0.45, comp: 0.4,  filt: 0.75, mast: 0.75, mode: 'hard' },
+  crush:   { dist: 0.7,  comp: 0.6,  filt: 0.6,  mast: 0.7, mode: 'fold' },
+  destroy: { dist: 1.0,  comp: 0.85, filt: 0.4,  mast: 0.6, mode: 'rectify' },
+};
+
+function initAudio() {
+  if (!actx) actx = new AudioContext();
+  if (actx.state === 'suspended') actx.resume();
+}
+
+// ===== KNOB DRAWING =====
+function drawKnob(id, value, color) {
+  const c = document.getElementById(id);
+  const ctx = c.getContext('2d');
+  const w = c.width, h = c.height, cx = w / 2, cy = h / 2, r = w * 0.36;
+  ctx.clearRect(0, 0, w, h);
+  const startAngle = Math.PI * 0.75, endAngle = Math.PI * 2.25;
+  const valAngle = startAngle + value * (endAngle - startAngle);
+  ctx.beginPath(); ctx.arc(cx, cy, r, startAngle, endAngle);
+  ctx.strokeStyle = '#1a1e27'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.stroke();
+  if (value > 0.005) {
+    ctx.beginPath(); ctx.arc(cx, cy, r, startAngle, valAngle);
+    ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.stroke();
+  }
+  const dx = cx + Math.cos(valAngle) * (r - 1), dy = cy + Math.sin(valAngle) * (r - 1);
+  ctx.beginPath(); ctx.arc(dx, dy, 5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.45, 0, Math.PI * 2); ctx.fillStyle = '#12151b'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.45, 0, Math.PI * 2); ctx.strokeStyle = '#252b38'; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+function updateKnobDisplay(k) {
+  drawKnob(knobIds[k], knobs[k], knobColors[k]);
+  $(knobValIds[k]).textContent = Math.round(knobs[k] * 100) + '%';
+}
+function drawAll() { for (const k in knobs) updateKnobDisplay(k); }
+drawAll();
+
+let dragging = null, dragStartY = 0, dragStartVal = 0;
+for (const k in knobIds) {
+  const canvas = $(knobIds[k]);
+  canvas.addEventListener('mousedown', e => { dragging = k; dragStartY = e.clientY; dragStartVal = knobs[k]; e.preventDefault(); });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); knobs[k] = Math.max(0, Math.min(1, knobs[k] - e.deltaY * 0.001)); updateKnobDisplay(k); clearActivePreset(); });
+}
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  knobs[dragging] = Math.max(0, Math.min(1, dragStartVal + (dragStartY - e.clientY) * 0.005));
+  updateKnobDisplay(dragging);
+  clearActivePreset();
+});
+document.addEventListener('mouseup', () => { dragging = null; });
+
+// ===== PRESETS =====
+function applyPreset(name) {
+  const p = presets[name];
+  knobs.dist = p.dist; knobs.comp = p.comp; knobs.filt = p.filt; knobs.mast = p.mast;
+  distMode = p.mode;
+  drawAll();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.p === name));
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.m === distMode));
+}
+function clearActivePreset() { document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); }
+document.querySelectorAll('.preset-btn').forEach(b => b.addEventListener('click', () => applyPreset(b.dataset.p)));
+document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => {
+  distMode = b.dataset.m;
+  document.querySelectorAll('.mode-btn').forEach(x => x.classList.toggle('active', x.dataset.m === distMode));
+  clearActivePreset();
+}));
+
+// ===== FILE LOADING =====
+$('drop').addEventListener('click', () => $('fileIn').click());
+$('fileIn').addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+$('drop').addEventListener('dragover', e => { e.preventDefault(); $('drop').classList.add('over'); });
+$('drop').addEventListener('dragleave', () => $('drop').classList.remove('over'));
+$('drop').addEventListener('drop', e => { e.preventDefault(); $('drop').classList.remove('over'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+async function loadFile(file) {
+  initAudio();
+  fileName = file.name;
+  sampleBuf = await actx.decodeAudioData(await file.arrayBuffer());
+  onSampleLoaded();
+}
+
+function onSampleLoaded() {
+  sel = { start: 0, end: 1 };
+  $('drop').classList.add('loaded');
+  $('drop').innerHTML = `<span class="fname">${fileName}</span><span class="meta">${sampleBuf.duration.toFixed(3)}s · ${sampleBuf.sampleRate}Hz · ${sampleBuf.numberOfChannels}ch</span>`;
+  $('waveBox').classList.add('show');
+  drawWave();
+  updateSelInfo();
+  $('btnPlay').disabled = false; $('btnDry').disabled = false; $('btnExport').disabled = false;
+  $('status').textContent = 'Space to play';
+}
+
+// ===== WAVEFORM + SELECTION DRAWING =====
+function drawWave() {
+  if (!sampleBuf) return;
+  const c = $('waveC');
+  const rect = c.parentElement.getBoundingClientRect();
+  c.width = rect.width * devicePixelRatio; c.height = rect.height * devicePixelRatio;
+  const ctx = c.getContext('2d');
+  const w = c.width, h = c.height, mid = h / 2;
+  ctx.clearRect(0, 0, w, h);
+
+  // Center line
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
+
+  // Waveform fill
+  const data = sampleBuf.getChannelData(0), step = data.length / w;
+  ctx.globalAlpha = 0.15; ctx.fillStyle = '#4a9eff';
+  ctx.beginPath(); ctx.moveTo(0, mid);
+  for (let x = 0; x < w; x++) {
+    const i = Math.floor(x * step); let max = -1;
+    for (let j = i; j < Math.min(i + Math.ceil(step), data.length); j++) if (data[j] > max) max = data[j];
+    ctx.lineTo(x, mid - max * mid * 0.9);
+  }
+  for (let x = w - 1; x >= 0; x--) {
+    const i = Math.floor(x * step); let min = 1;
+    for (let j = i; j < Math.min(i + Math.ceil(step), data.length); j++) if (data[j] < min) min = data[j];
+    ctx.lineTo(x, mid - min * mid * 0.9);
+  }
+  ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+
+  // Waveform line
+  ctx.strokeStyle = '#4a9eff'; ctx.lineWidth = 1.2; ctx.beginPath();
+  for (let x = 0; x < w; x++) {
+    const i = Math.floor(x * step); let peak = 0;
+    for (let j = i; j < Math.min(i + Math.ceil(step), data.length); j++) if (Math.abs(data[j]) > Math.abs(peak)) peak = data[j];
+    const y = mid - peak * mid * 0.9;
+    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Selection overlay
+  if (hasSelection()) {
+    const sx = sel.start * w, ex = sel.end * w;
+
+    // Dark overlay on non-selected regions
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    if (sel.start > 0) ctx.fillRect(0, 0, sx, h);
+    if (sel.end < 1) ctx.fillRect(ex, 0, w - ex, h);
+
+    // Selection border
+    ctx.strokeStyle = 'rgba(74,158,255,0.6)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx, 0, ex - sx, h);
+
+    // Handles
+    ctx.fillStyle = '#4a9eff';
+    ctx.fillRect(sx - 1.5, 0, 3, h);
+    ctx.fillRect(ex - 1.5, 0, 3, h);
+
+    // Handle grips (small triangles)
+    const gh = 10;
+    ctx.beginPath(); ctx.moveTo(sx, h / 2 - gh); ctx.lineTo(sx + 6, h / 2); ctx.lineTo(sx, h / 2 + gh); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(ex, h / 2 - gh); ctx.lineTo(ex - 6, h / 2); ctx.lineTo(ex, h / 2 + gh); ctx.fill();
+  }
+}
+
+// ===== WAVEFORM MOUSE INTERACTION =====
+const waveC = $('waveC');
+
+function mouseToFrac(e) {
+  const rect = waveC.getBoundingClientRect();
+  return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+}
+
+function nearHandle(e) {
+  const rect = waveC.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const sw = sel.start * rect.width;
+  const ew = sel.end * rect.width;
+  if (hasSelection() && Math.abs(mx - sw) < 8) return 'start';
+  if (hasSelection() && Math.abs(mx - ew) < 8) return 'end';
+  return null;
+}
+
+waveC.addEventListener('mousedown', e => {
+  if (!sampleBuf) return;
+  e.preventDefault();
+  const handle = nearHandle(e);
+  if (handle) {
+    selDrag = handle;
+  } else {
+    selDrag = 'new';
+    selAnchor = mouseToFrac(e);
+    sel.start = selAnchor;
+    sel.end = selAnchor;
+  }
+});
+
+waveC.addEventListener('mousemove', e => {
+  if (!sampleBuf) return;
+
+  if (selDrag) {
+    const frac = mouseToFrac(e);
+    if (selDrag === 'start') {
+      sel.start = Math.min(frac, sel.end - 0.003);
+    } else if (selDrag === 'end') {
+      sel.end = Math.max(frac, sel.start + 0.003);
+    } else if (selDrag === 'new') {
+      if (frac < selAnchor) { sel.start = frac; sel.end = selAnchor; }
+      else { sel.start = selAnchor; sel.end = frac; }
+    }
+    drawWave();
+    updateSelInfo();
+    return;
+  }
+
+  // Cursor hint
+  const handle = nearHandle(e);
+  waveC.style.cursor = handle ? 'ew-resize' : 'crosshair';
+});
+
+document.addEventListener('mouseup', () => {
+  if (selDrag === 'new' && Math.abs(sel.end - sel.start) < 0.005) {
+    sel.start = 0; sel.end = 1;
+    drawWave();
+    updateSelInfo();
+  }
+  selDrag = null;
+});
+
+waveC.addEventListener('dblclick', () => {
+  sel.start = 0; sel.end = 1;
+  drawWave();
+  updateSelInfo();
+});
+
+// ===== FX CHAIN =====
+function buildChain(ctx, src) {
+  let cur = src;
+  if (knobs.dist > 0.01) {
+    const ws = ctx.createWaveShaper();
+    ws.curve = makeDistortionCurve(distMode, knobs.dist, 24);
+    ws.oversample = '4x';
+    cur.connect(ws); cur = ws;
+  }
+  if (knobs.comp > 0.01) {
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -6 - knobs.comp * 42;
+    comp.ratio.value = 1 + knobs.comp * 18;
+    comp.attack.value = 0.001 + (1 - knobs.comp) * 0.02;
+    comp.release.value = 0.05 + (1 - knobs.comp) * 0.2;
+    comp.knee.value = 4;
+    cur.connect(comp); cur = comp;
+    const makeup = ctx.createGain();
+    makeup.gain.value = 1 + knobs.comp * 1.5;
+    cur.connect(makeup); cur = makeup;
+  }
+  if (knobs.filt < 0.99) {
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.value = 200 + knobs.filt * knobs.filt * 19800;
+    filt.Q.value = 0.7 + (1 - knobs.filt) * 4;
+    cur.connect(filt); cur = filt;
+  }
+  const mast = ctx.createGain();
+  mast.gain.value = knobs.mast;
+  cur.connect(mast); cur = mast;
+  return cur;
+}
+
+// ===== PLAYBACK =====
+function stopPlayback() {
+  if (playSrc) { try { playSrc.stop(); } catch {} playSrc = null; }
+  isPlaying = false;
+  if (animF) cancelAnimationFrame(animF);
+  $('ph').style.display = 'none';
+}
+
+function play(dry = false) {
+  if (!sampleBuf) return;
+  initAudio(); stopPlayback();
+  playSrc = actx.createBufferSource();
+  playSrc.buffer = sampleBuf;
+
+  const startSec = selStartSec();
+  const durSec = selDurSec();
+
+  if (dry) playSrc.connect(actx.destination);
+  else buildChain(actx, playSrc).connect(actx.destination);
+
+  const t0 = actx.currentTime;
+  playSrc.start(0, startSec, durSec);
+  isPlaying = true;
+  $('status').textContent = dry ? 'Playing dry...' : 'Playing...';
+  playSrc.onended = () => { isPlaying = false; $('ph').style.display = 'none'; $('status').textContent = 'Ready'; };
+  $('ph').style.display = 'block';
+  (function anim() {
+    if (!isPlaying) return;
+    const elapsed = actx.currentTime - t0;
+    const pct = sel.start + elapsed / sampleBuf.duration;
+    if (pct > sel.end || elapsed > durSec) { $('ph').style.display = 'none'; return; }
+    $('ph').style.left = (pct * 100) + '%';
+    animF = requestAnimationFrame(anim);
+  })();
+}
+
+// ===== EXPORT =====
+async function exportWav() {
+  if (!sampleBuf) return;
+  $('status').textContent = 'Rendering...';
+
+  const startSec = selStartSec();
+  const durSec = selDurSec();
+  const renderLen = Math.ceil((durSec + 0.05) * sampleBuf.sampleRate);
+  const offCtx = new OfflineAudioContext(sampleBuf.numberOfChannels, renderLen, sampleBuf.sampleRate);
+  const src = offCtx.createBufferSource();
+  src.buffer = sampleBuf;
+  buildChain(offCtx, src).connect(offCtx.destination);
+  src.start(0, startSec, durSec);
+  const rendered = await offCtx.startRendering();
+
+  // Normalize to -0.3 dBFS
+  const chs = [];
+  for (let c = 0; c < rendered.numberOfChannels; c++) chs.push(rendered.getChannelData(c));
+  let peak = 0;
+  for (const d of chs) for (let i = 0; i < d.length; i++) if (Math.abs(d[i]) > peak) peak = Math.abs(d[i]);
+  const target = Math.pow(10, -0.3 / 20);
+  if (peak > 0.001) { const s = target / peak; for (const d of chs) for (let i = 0; i < d.length; i++) d[i] *= s; }
+
+  const wavBuf = encodeWav24(rendered);
+  const suffix = hasSelection() ? '_cut_crushed' : '_crushed';
+  const name = fileName.replace(/\.wav$/i, '') + suffix + '.wav';
+  window.parent.postMessage({ type: 'save-wav', buffer: wavBuf, name }, '*');
+  $('status').textContent = 'Exported: ' + name;
+}
+
+// ===== EVENTS =====
+$('btnPlay').addEventListener('click', () => play(false));
+$('btnDry').addEventListener('click', () => play(true));
+$('btnExport').addEventListener('click', exportWav);
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { e.preventDefault(); if (isPlaying) stopPlayback(); else play(false); }
+  if (k === 'd') play(true);
+  if (k === 'e') exportWav();
+  if (k === 'escape' && sampleBuf) { sel.start = 0; sel.end = 1; drawWave(); updateSelInfo(); }
+});
+
+new ResizeObserver(() => { if (sampleBuf) drawWave(); }).observe(document.body);
+
+// Tauri/parent integration
+window.addEventListener('message', async e => {
+  if (e.data.type === 'load-sample' && e.data.data) {
+    initAudio();
+    fileName = e.data.name || 'sample.wav';
+    const arrayBuf = e.data.data instanceof ArrayBuffer ? e.data.data : e.data.data.buffer.slice(e.data.data.byteOffset, e.data.data.byteOffset + e.data.data.byteLength);
+    sampleBuf = await actx.decodeAudioData(arrayBuf);
+    onSampleLoaded();
+  }
+});
+</script>
+</body>
+</html>

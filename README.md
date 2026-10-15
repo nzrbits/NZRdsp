@@ -14,4 +14,6 @@ Run `cargo check --manifest-path src-tauri/Cargo.toml --locked` to check the hos
 
 The repository's 20 existing issues request synthesizer/effect CLIs and comparison against their reference products. They are feature projects, not fixes already delivered by the current Synth/Crusher UI. The queue is tracked in [docs/issue-audit.json](docs/issue-audit.json). Implemented controls must be verified before an issue is closed; a generic approximation must not be labeled as a verified clone of a commercial plugin.
 
+[Plugin scope notes](docs/PLUGINS.md) correct preset formats, engine/control assumptions and reference-host requirements for all twenty issues. They distinguish researched plans from implemented commands.
+
 Shared editor code will have one source and explicit host adapters. Keep Tauri file handling separate from NZRstudio's revision-checked Apply API. Preserve the current Studio EQ, history and voice features when extracting shared modules.

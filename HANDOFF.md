@@ -1,5 +1,7 @@
 # NZRdsp handoff
 
+docs/PLUGINS.md now records source-linked corrections and implementation/reference requirements for all twenty plugin issues. These are researched scopes, not completed engines. The longer deep-research report and claim review remain unfinished in Documents/NZRdsp_Plugin_Research_20261016; do not claim that report is delivered.
+
 The user confirmed NZRdsp and NZRtools are the same project and chose NZRdsp as its name. The canonical checkout was moved from D:/music-dev/nzr-synth to D:/music-dev/NZRdsp. Original Crusher edits were committed as 587bef5 before the rename; the verified backup bundle is D:/music-dev-build/NZRstudio/NZRdsp-before-rename.bundle. Historical branches remain available. Main is the development branch, with origin pointing to nzrbits/NZRdsp.
 
 Visible titles and the Cargo package name now use NZRdsp; the legacy Tauri identifier com.nzr.tools is retained for compatibility. Generated schemas are ignored. The standalone editor remains older than Studio's embedded implementation. Do not silently overwrite the richer Studio implementation when extracting shared code.

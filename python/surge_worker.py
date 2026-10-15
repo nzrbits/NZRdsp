@@ -5,12 +5,106 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import struct
+import xml.etree.ElementTree as ET
 
 COMMIT = "d8b4a7bf97b39d0558830cd4799642247349bea2"
 
 
 def digest(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    result = hashlib.sha256()
+    with Path(path).open("rb") as reader:
+        for block in iter(lambda: reader.read(1024 * 1024), b""):
+            result.update(block)
+    return result.hexdigest()
+
+
+def patch_metadata(path):
+    path = Path(path).resolve(strict=True)
+    with path.open("rb") as reader:
+        header = reader.read(60)
+        if len(header) != 60 or header[:4] != b"CcnK" or header[8:12] != b"FPCh" or header[16:20] != b"cjs3":
+            raise ValueError("Not a native Surge FXP patch")
+        chunk_size = struct.unpack(">I", header[56:60])[0]
+        if chunk_size == 0 or chunk_size > os.fstat(reader.fileno()).st_size - 60:
+            raise ValueError("Truncated or empty native patch chunk")
+        prefix = reader.read(min(32, chunk_size))
+        if prefix[:4] == b"sub3":
+            if len(prefix) != 32:
+                raise ValueError("Truncated native patch header")
+            xml_size, *wave_sizes = struct.unpack("<7I", prefix[4:])
+            if xml_size == 0 or 32 + xml_size + sum(wave_sizes) > chunk_size:
+                raise ValueError("Invalid XML or wavetable sizes in native patch")
+            if xml_size > 16 * 1024 * 1024:
+                raise ValueError("Patch metadata exceeds 16 MiB")
+            xml = reader.read(xml_size)
+            if len(xml) != xml_size:
+                raise ValueError("Truncated native patch XML")
+            format_name = "surge-sub3"
+        else:
+            if chunk_size > 16 * 1024 * 1024:
+                raise ValueError("Legacy patch XML exceeds 16 MiB")
+            reader.seek(60)
+            xml = reader.read(chunk_size)
+            format_name = "surge-xml"
+    upper_xml = xml.upper()
+    if b"<!DOCTYPE" in upper_xml or b"<!ENTITY" in upper_xml:
+        raise ValueError("Patch metadata must not declare DTDs or entities")
+    root, meta = patch_meta_element(xml.rstrip(b"\0"))
+    result = {key: meta.get(key, "") if meta is not None else "" for key in ["name", "category", "author", "comment", "license"]}
+    result["name"] = result["name"] or header[28:56].split(b"\0", 1)[0].decode("utf-8", errors="replace") or path.stem
+    result.update(path=str(path), filename=path.name, format=format_name,
+                  revision=root.get("revision"), sha256=digest(path),
+                  tags=[tag.get("tag", "") for tag in meta.findall("tags/tag") if tag.get("tag")] if meta is not None else [])
+    return result
+
+
+def patch_meta_element(xml):
+    parser = ET.XMLPullParser(events=["start", "end"])
+    root, depth = {}, 0
+    for offset in range(0, len(xml), 1024):
+        parser.feed(xml[offset:offset + 1024])
+        for event, element in parser.read_events():
+            if event == "start":
+                if depth == 0:
+                    if element.tag != "patch":
+                        raise ValueError("Native patch XML has no patch root")
+                    root = dict(element.attrib)
+                depth += 1
+            else:
+                if depth == 2 and element.tag == "meta":
+                    return root, element
+                depth -= 1
+    parser.close()
+    return root, None
+
+
+def patch_catalog(folder, query=None):
+    root = Path(folder).resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("Preset catalog root must be a directory")
+    presets, errors, scanned = [], [], 0
+    def unreadable(error):
+        errors.append({"path": str(error.filename), "error": str(error)})
+
+    for directory, folders, files in os.walk(root, followlinks=False, onerror=unreadable):
+        folders[:] = sorted(name for name in folders if not (Path(directory) / name).is_symlink()
+                            and not (Path(directory) / name).is_junction())
+        for filename in sorted(files):
+            path = Path(directory) / filename
+            if path.suffix.lower() != ".fxp" or path.is_symlink():
+                continue
+            scanned += 1
+            try:
+                item = patch_metadata(path)
+                item["relative_path"] = str(path.relative_to(root))
+                text = " ".join(str(item[key]) for key in ["name", "category", "author", "comment", "tags", "relative_path"])
+                if not query or query.casefold() in text.casefold():
+                    presets.append(item)
+            except (OSError, ValueError, ET.ParseError) as error:
+                errors.append({"path": str(path), "error": str(error)})
+    presets.sort(key=lambda item: (item["category"].casefold(), item["name"].casefold(), item["path"].casefold()))
+    return {"root": str(root), "query": query, "scanned": scanned, "matched": len(presets), "presets": presets, "errors": errors}
 
 
 def native_parameters(engine):
@@ -53,11 +147,17 @@ def publish(temporary, destination):
 
 
 def execute(request):
+    if request["action"] == "metadata":
+        return patch_metadata(request["preset"])
+    if request["action"] == "catalog":
+        return patch_catalog(request["root"], request.get("query"))
     config = request["engine"]
     if config["source_commit"] != COMMIT:
         raise ValueError("Unsupported native source commit; rebuild the pinned Surge engine")
     module_dir = Path(config["module_dir"]).resolve(strict=True)
     sys.path.insert(0, str(module_dir))
+    if config.get("data_dir"):
+        os.environ["SURGE_DATA_HOME"] = str(Path(config["data_dir"]).resolve(strict=True))
     import numpy as np
     import soundfile as sf
     import surgepy
@@ -70,13 +170,14 @@ def execute(request):
         raise ValueError("Native module hash differs from the configured build")
     if COMMIT[:8] not in surgepy.getVersion():
         raise ValueError("Native engine version does not match the pinned source commit")
-    if config.get("data_dir"):
-        os.environ["SURGE_DATA_HOME"] = str(Path(config["data_dir"]).resolve(strict=True))
     engine = surgepy.createSurge(rate)
     if engine.getSampleRate() != rate:
         raise ValueError("Native sample rate differs from request")
     patch = Path(request["preset"]).resolve(strict=True) if request.get("preset") else None
     patch_hash = digest(patch) if patch else None
+    patch_info = patch_metadata(patch) if patch else None
+    if patch_info and patch_info["sha256"] != patch_hash:
+        raise RuntimeError("Input patch changed while reading metadata")
     if patch and not engine.loadPatch(str(patch)):
         raise ValueError("The native engine rejected the preset")
     parameters = native_parameters(engine)
@@ -109,7 +210,7 @@ def execute(request):
             if not temporary.is_file() or temporary.stat().st_size == 0:
                 raise RuntimeError("The native engine did not save a patch")
             publish(temporary, output)
-        return {"engine": "Surge XT", "preset": str(output), "sha256": digest(output)}
+        return {"engine": "Surge XT", "preset": str(output), "sha256": digest(output), "metadata": patch_metadata(output)}
     if request["action"] != "render":
         raise ValueError("Unknown worker action")
     note, velocity = int(request["note"]), int(request["velocity"])
@@ -151,6 +252,7 @@ def execute(request):
                     "module_sha256": config["module_sha256"], "preset": str(patch) if patch else None,
                     "factory_data_path": engine.getFactoryDataPath(), "user_data_path": engine.getUserDataPath(),
                     "preset_sha256": patch_hash, "parameters": changes,
+                    "preset_metadata": patch_info,
                     "sample_rate": rate, "block_size": block, "note": note, "velocity": velocity,
                     "requested_note_seconds": duration, "actual_note_frames": on_blocks * block,
                     "tail_frames": tail_frames, "frames": frames, "peak": peak,

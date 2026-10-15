@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import shutil
 
 import numpy as np
 import soundfile as sf
@@ -15,6 +16,7 @@ import soundfile as sf
 
 @unittest.skipUnless(os.environ.get("NZRDSP_SURGE_CLI"), "Native CLI not configured")
 class NativeSurgeTests(unittest.TestCase):
+    maxDiff = None
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
@@ -47,6 +49,9 @@ class NativeSurgeTests(unittest.TestCase):
             self.assertEqual(manifest["preset_sha256"], patch_hash)
             self.assertEqual(manifest["wav_sha256"], hashlib.sha256(output.read_bytes()).hexdigest())
             self.assertEqual(json.loads(output.with_suffix(".wav.json").read_text()), manifest)
+            data_dir = self.runtime["engines"]["surge"].get("data_dir")
+            if data_dir:
+                self.assertEqual(Path(manifest["factory_data_path"]).resolve(), Path(data_dir).resolve())
         self.assertEqual(hashlib.sha256(self.patch.read_bytes()).hexdigest(), patch_hash)
 
     def test_failures_preserve_existing_outputs(self):
@@ -72,12 +77,31 @@ class NativeSurgeTests(unittest.TestCase):
         self.assertIn("hash", error)
         self.assertFalse(output.exists())
 
+    def test_metadata_catalog_search_and_corrupt_patch_reporting(self):
+        before = self.patch.read_bytes()
+        metadata = self.invoke("--preset", self.patch, "--metadata")
+        factory_loaded = bool(self.runtime["engines"]["surge"].get("data_dir"))
+        self.assertEqual(metadata["name"], "Init Saw" if factory_loaded else "Init")
+        self.assertEqual(metadata["category"], "Templates" if factory_loaded else "Init")
+        self.assertEqual(metadata["author"], "Surge Synth Team")
+        self.assertEqual(metadata["sha256"], hashlib.sha256(before).hexdigest())
+        nested = self.root / "Bässe"
+        nested.mkdir()
+        shutil.copyfile(self.patch, nested / "Unicode.FXP")
+        (self.root / "bad.fxp").write_bytes(b"invalid")
+        catalog = self.invoke("--list-presets", self.root)
+        self.assertEqual((catalog["scanned"], catalog["matched"], len(catalog["errors"])), (3, 2, 1))
+        filtered = self.invoke("--list-presets", self.root, "--query", "BÄSSE")
+        self.assertEqual(filtered["matched"], 1)
+        self.assertEqual(filtered["presets"][0]["filename"], "Unicode.FXP")
+        self.assertEqual(self.patch.read_bytes(), before)
+
     def test_cli_matches_direct_native_block_processing(self):
         config = self.runtime["engines"]["surge"]
         sys.path.insert(0, config["module_dir"])
-        import surgepy
         if config.get("data_dir"):
             os.environ["SURGE_DATA_HOME"] = config["data_dir"]
+        import surgepy
         output = self.root / "reference.wav"
         self.invoke("--preset", self.patch, "--note", 48, "--duration", .1, "--tail", 0,
                     "--param", "scene.0.osc.0.retrigger=true", "-o", output)

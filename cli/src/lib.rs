@@ -40,6 +40,15 @@ struct SurgeArgs {
     /// Print native numeric parameters, paths, ranges and displays as JSON
     #[arg(long, conflicts_with = "output")]
     list_params: bool,
+    /// Read the stored metadata of --preset without loading the synth
+    #[arg(long, requires = "preset", conflicts_with_all = ["output", "list_params", "init_preset", "list_presets"])]
+    metadata: bool,
+    /// Recursively list native patches with metadata
+    #[arg(long, conflicts_with_all = ["preset", "output", "list_params", "init_preset"])]
+    list_presets: Option<PathBuf>,
+    /// Case-insensitive metadata/path search for --list-presets
+    #[arg(long, requires = "list_presets")]
+    query: Option<String>,
     #[arg(short, long)]
     output: Option<PathBuf>,
     #[arg(long, default_value_t = 36, value_parser = clap::value_parser!(u8).range(0..=127))]
@@ -78,7 +87,11 @@ pub fn run(surge_alias: bool) -> Result<()> {
     let python = runtime["python"]
         .as_str()
         .context("Runtime config needs python")?;
-    let action = if args.init_preset.is_some() {
+    let action = if args.list_presets.is_some() {
+        "catalog"
+    } else if args.metadata {
+        "metadata"
+    } else if args.init_preset.is_some() {
         "init"
     } else if args.list_params {
         "parameters"
@@ -91,7 +104,7 @@ pub fn run(surge_alias: bool) -> Result<()> {
     let request = json!({"action":action,"engine":runtime["engines"]["surge"],
         "preset":args.preset,"output":args.output.or(args.init_preset),"note":args.note,
         "velocity":args.velocity,"duration":args.duration,"tail":args.tail,"rate":args.rate,
-        "parameters":args.parameters});
+        "parameters":args.parameters,"root":args.list_presets,"query":args.query});
     let response = worker::execute(
         python,
         include_bytes!("../../python/surge_worker.py"),
@@ -129,8 +142,20 @@ mod tests {
             vec!["surge-cli", "--rate", "7999"],
             vec!["surge-cli", "--init-preset", "init.fxp", "-o", "out.wav"],
             vec!["surge-cli", "--list-params", "-o", "out.wav"],
+            vec!["surge-cli", "--metadata"],
+            vec!["surge-cli", "--query", "bass"],
+            vec!["surge-cli", "--list-presets", ".", "-o", "out.wav"],
         ] {
             assert!(SurgeCli::try_parse_from(arguments).is_err());
         }
+    }
+
+    #[test]
+    fn native_metric_decimals_keep_their_exact_f64_value() {
+        let value: serde_json::Value = serde_json::from_str("0.38500484824180603").unwrap();
+        assert_eq!(
+            value.as_f64().unwrap().to_bits(),
+            0.38500484824180603f64.to_bits()
+        );
     }
 }

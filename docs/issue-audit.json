@@ -11,8 +11,8 @@
     "number": 2,
     "title": "02 — Vital: Spectral Warping Wavetable Synth CLI",
     "url": "https://github.com/nzrbits/NZRdsp/issues/2",
-    "status": "pending",
-    "evidence": "",
+    "status": "in-progress",
+    "evidence": "VITAL_BACKEND.md#verification",
     "scope_notes": "PLUGINS.md"
   },
   {

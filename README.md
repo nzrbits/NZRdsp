@@ -12,6 +12,8 @@ The [VST3 reference CLI](docs/VST_CLI.md) processes WAVs through installed nativ
 
 The [Dexed CLI](docs/DEXED_CLI.md) inspects/edits DX7 banks and renders notes through native Modern, Mark I and OPL engines. `nzrdsp dexed` and `dexed-cli` produce Float32 WAV with manifests, hash/version checks and subprocess deadlines. Independent hardware/verified-emulator audio comparison remains pending.
 
+The [spectral engine backend](docs/VITAL_BACKEND.md) builds the pinned Vital headless source on Windows, inspects 772 native controls, saves/loads native presets and renders notes to Float32 WAV. The Rust command/alias and GUI reference comparison remain pending.
+
 Run `cargo check --manifest-path src-tauri/Cargo.toml --locked` to check the host. A Tauri build uses `src-tauri/tauri.conf.json` and the existing `frontend` assets. Build products and generated schemas are not source.
 
 ## Issue work

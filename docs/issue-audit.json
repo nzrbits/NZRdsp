@@ -99,9 +99,10 @@
     "number": 13,
     "title": "13 — SPL Transient Designer: Transient Shaper CLI",
     "url": "https://github.com/nzrbits/NZRdsp/issues/13",
-    "status": "pending",
-    "evidence": "",
-    "scope_notes": "PLUGINS.md"
+    "status": "in-progress",
+    "evidence": "TRANSIENT_LAB.md",
+    "scope_notes": "PLUGINS.md",
+    "remaining": "Installed reference unavailable; vendor detector topology/constants, feature coverage and SPL audio comparison remain pending. Independent lab is explicitly not vendor parity."
   },
   {
     "number": 14,

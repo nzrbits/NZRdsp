@@ -14,6 +14,8 @@ The [Dexed CLI](docs/DEXED_CLI.md) inspects/edits DX7 banks and renders notes th
 
 The [spectral engine CLI](docs/VITAL_CLI.md) exposes `nzrdsp vital` and `vital-cli`: 772 native controls, preset save/load and Float32 WAV exports with manifests, hash checks, deadlines and output protection. The [Windows backend](docs/VITAL_BACKEND.md) builds the pinned public Vital source. GUI reference comparison remains pending.
 
+The [Transient Lab](docs/TRANSIENT_LAB.md) adds an independently named attack/sustain experiment with bounded WAV processing, level-linked detectors and reproducible output manifests. It is not an SPL clone; reference comparison remains pending.
+
 Run `cargo check --manifest-path src-tauri/Cargo.toml --locked` to check the host. A Tauri build uses `src-tauri/tauri.conf.json` and the existing `frontend` assets. Build products and generated schemas are not source.
 
 ## Issue work

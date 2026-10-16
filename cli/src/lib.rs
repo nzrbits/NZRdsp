@@ -4,6 +4,7 @@ use serde_json::json;
 use std::{path::PathBuf, time::Duration};
 mod dexed;
 mod native;
+mod transient;
 mod vital;
 mod vst;
 mod worker;
@@ -17,6 +18,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Engine {
+    /// Independent transient-shaping experiment, not vendor emulation
+    TransientLab(transient::TransientArgs),
     Surge(SurgeArgs),
     /// Inspect/edit DX7 SysEx and render through the native Dexed engine
     Dexed(dexed::DexedArgs),
@@ -101,6 +104,7 @@ pub fn run(surge_alias: bool) -> Result<()> {
     } else {
         match Cli::parse().engine {
             Engine::Surge(args) => args,
+            Engine::TransientLab(args) => return transient::run(args),
             Engine::Vst(args) => return vst::run(args),
             Engine::Dexed(args) => return dexed::run(args),
             Engine::Vital(args) => return vital::run(args),

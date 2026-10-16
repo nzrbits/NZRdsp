@@ -8,6 +8,7 @@ anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 tempfile = "3"
+sha2 = "=0.10.9"
 
 [[bin]]
 name = "nzrdsp"
@@ -16,3 +17,7 @@ path = "src/main.rs"
 [[bin]]
 name = "surge-cli"
 path = "src/surge_main.rs"
+
+[[bin]]
+name = "dexed-cli"
+path = "src/dexed_main.rs"

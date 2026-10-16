@@ -44,10 +44,25 @@ pub fn execute(
     worker.write_all(script)?;
     worker.flush()?;
     let mut command = Command::new(python);
+    command.args(["-X", "utf8", "-u"]).arg(worker.path());
+    execute_command(command, Some(serde_json::to_vec(&request)?), timeout)
+}
+
+pub fn execute_native(command: Command, timeout: Duration) -> Result<Value> {
+    execute_command(command, None, timeout)
+}
+
+fn execute_command(
+    mut command: Command,
+    input: Option<Vec<u8>>,
+    timeout: Duration,
+) -> Result<Value> {
     command
-        .args(["-X", "utf8", "-u"])
-        .arg(worker.path())
-        .stdin(Stdio::piped())
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     #[cfg(windows)]
@@ -55,9 +70,7 @@ pub fn execute(
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000);
     }
-    let mut child = command
-        .spawn()
-        .context("Start the configured Python runtime")?;
+    let mut child = command.spawn().context("Start the configured worker")?;
     let mut stdout = child.stdout.take().context("Worker stdout missing")?;
     let mut stderr = child.stderr.take().context("Worker stderr missing")?;
     let output_reader = std::thread::spawn(move || {
@@ -68,15 +81,19 @@ pub fn execute(
         let mut bytes = Vec::new();
         stderr.read_to_end(&mut bytes).map(|_| bytes)
     });
-    let write_result = child
-        .stdin
-        .take()
-        .context("Worker stdin missing")?
-        .write_all(&serde_json::to_vec(&request)?);
-    if let Err(error) = write_result {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(error.into());
+    if let Some(input) = input {
+        let write_result = child
+            .stdin
+            .take()
+            .context("Worker stdin missing")?
+            .write_all(&input);
+        if let Err(error) = write_result {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = output_reader.join();
+            let _ = error_reader.join();
+            return Err(error.into());
+        }
     }
     let started = Instant::now();
     let (status, timed_out) = loop {
@@ -136,6 +153,17 @@ mod tests {
             Duration::from_millis(100),
         )
         .unwrap_err();
+        assert!(error.to_string().contains("timeout"));
+        assert!(started.elapsed() < Duration::from_secs(3));
+    }
+    #[test]
+    #[ignore = "Requires NZRDSP_TEST_PYTHON; no plugins or playback"]
+    fn native_worker_without_stdin_is_terminated_at_deadline() {
+        let python = std::env::var("NZRDSP_TEST_PYTHON").unwrap();
+        let mut command = Command::new(python);
+        command.args(["-c", "import time;time.sleep(10)"]);
+        let started = Instant::now();
+        let error = execute_native(command, Duration::from_millis(100)).unwrap_err();
         assert!(error.to_string().contains("timeout"));
         assert!(started.elapsed() < Duration::from_secs(3));
     }

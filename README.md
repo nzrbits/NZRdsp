@@ -10,7 +10,7 @@ The [Surge CLI](docs/SURGE_CLI.md) renders native Surge XT patches through a pin
 
 The [VST3 reference CLI](docs/VST_CLI.md) processes WAVs through installed native effects, lists raw parameters and saves/loads VST3 snapshots. Saturn 2 and Pro-Q 4 have native render checks; this is reference-host progress for their issues, not an independent DSP port.
 
-The [Dexed SysEx tools](docs/DEXED_CLI.md) inspect DX7 banks, expose every unpacked byte and export edited single voices. A separate native Dexed backend now renders notes through Modern, Mark I and OPL; its Rust command integration and independent audio comparison remain pending.
+The [Dexed CLI](docs/DEXED_CLI.md) inspects/edits DX7 banks and renders notes through native Modern, Mark I and OPL engines. `nzrdsp dexed` and `dexed-cli` produce Float32 WAV with manifests, hash/version checks and subprocess deadlines. Independent hardware/verified-emulator audio comparison remains pending.
 
 Run `cargo check --manifest-path src-tauri/Cargo.toml --locked` to check the host. A Tauri build uses `src-tauri/tauri.conf.json` and the existing `frontend` assets. Build products and generated schemas are not source.
 

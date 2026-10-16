@@ -59,4 +59,4 @@ $temporary = Join-Path $configDir ('.runtime-' + [guid]::NewGuid().ToString('N')
 $config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporary -Encoding utf8
 [IO.File]::Move($temporary, $configPath, $true)
 Write-Output "Built Dexed native renderer: $binary"
-Write-Output 'The Rust SysEx command does not invoke this backend yet.'
+Write-Output 'Render with nzrdsp dexed or dexed-cli; see docs/DEXED_CLI.md.'

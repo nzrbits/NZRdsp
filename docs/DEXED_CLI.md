@@ -1,6 +1,6 @@
 # Dexed SysEx tools
 
-`nzrdsp dexed` currently inspects and edits DX7 SysEx. A separate native Dexed backend now renders notes to WAV. Its connection to this Rust command and an independent audio reference comparison are still pending under #6. No plugin, Python runtime or audio device is required for these commands.
+`nzrdsp dexed` and `dexed-cli` inspect/edit DX7 SysEx and render notes through the pinned native Dexed processor. An independent hardware or verified-emulator audio comparison remains pending under #6. Python is not required for these commands; the native renderer must be built/configured for WAV export. No audio or MIDI device is opened.
 
 ## Commands
 
@@ -11,9 +11,10 @@ nzrdsp dexed --list-params
 nzrdsp dexed --sysex bank.syx --list-voices
 nzrdsp dexed --sysex bank.syx --voice 31
 nzrdsp dexed --sysex bank.syx --voice 31 --param algorithm=31 --param op1.output_level=99 --name NEURO --save-sysex edited.syx
+dexed-cli --sysex bank.syx --voice 31 --note 36 --duration 2 --tail 2 --engine mark1 -o bass.wav
 ```
 
-Without an export path, edits are a dry run printed as JSON. Inspection includes all 155 unpacked bytes, named values/ranges, name, selected zero-based voice, source format and one-based MIDI channel. `--save-sysex` writes a new single-voice message, retaining the source channel. Its parent directory must exist. Existing files are preserved; the input is never rewritten.
+Without an export path, edits are a dry run printed as JSON. `--save-sysex` and `--output` are separate actions and cannot be combined. Inspection includes all 155 unpacked bytes, named values/ranges, name, selected zero-based voice, source format and one-based MIDI channel. `--save-sysex` writes a new single-voice message, retaining the source channel. Its parent directory must exist. Existing files are preserved; the input is never rewritten.
 
 Supported inputs are exactly one complete Yamaha DX7 single-voice message (163 bytes) or a packed 32-voice bank (4104 bytes). Single-voice files have only voice index 0. Header, channel, declared byte count, actual length, 7-bit data, checksum and every voice's parameter ranges are checked. Truncation, trailing/concatenated messages, raw cartridge data, MIDI files and out-of-range programs are rejected. The bounded reader reads at most 4105 bytes. Reserved packed bits are ignored according to the source mapping; invalid semantic values are rejected rather than repaired with Dexed's corrupt-data heuristics.
 
@@ -50,6 +51,31 @@ python -X utf8 -m unittest python.tests.test_dexed_sysex -v
 
 The recorded local run compared 96 deterministic synthetic voices across three generated banks, all 14880 unpacked bytes equal to the compiled upstream function. All three CLI checks pass; seven Rust tests pass with the unrelated opt-in worker timeout test skipped. This verifies the SysEx mapping for those valid inputs. Hardware/GUI/audio parity and the native renderer are not verified by this test.
 
+## Render controls and publication
+
+Build/configure the native backend below, then use `--output` or `-o` for a new WAV and its adjacent `output.wav.json` manifest. The alias and primary command use the same implementation. Bank selection and named edits apply before rendering; the manifest keeps all selected/edited program bytes.
+
+| Option | Default | Accepted value |
+|---|---|---|
+| `--note` | 36 | MIDI 0 to 127 |
+| `--velocity` | 100 | 1 to 127 |
+| `--duration` | 2 seconds | Finite, positive, at most 600; must round to a nonzero frame count |
+| `--tail` | 2 seconds | Finite, 0 to 60 |
+| `--rate` | 48000 | 22050 to 192000 Hz |
+| `--block` | 64 | 1 to 8192 frames |
+| `--engine` | mark1 | modern, mark1, opl |
+| `--seed` | 0 | Unsigned 32-bit integer |
+| `--timeout` | 120 seconds | 1 to 3600 |
+| `--runtime` | Standard runtime config | Same NZRDSP_RUNTIME/LocalAppData selection as the other commands |
+
+Duration and tail are independently rounded to the nearest frame. Note-on is at frame zero, and note-off is scheduled at the duration boundary when there is a tail. The original core has a 64-sample quantum: its timing and partial-block behavior are retained without extra compensation. Audio is Float32 stereo, without normalization or resampling. The seed controls native process initialization; it does not promise different output for a synchronized patch.
+
+Before starting, the command checks the configured source pin and executable SHA256. The hidden child process has a deadline. Input, intermediate SysEx and WAV stay in an owned staging directory until the worker succeeds. Rust then streams the WAV again to check header, exact frame/byte count, finite samples, SHA256 and decoded peak/RMS against the native report. Audio memory is bounded by processing/read chunks, rather than track length.
+
+Both final paths must be new. Publication uses no-overwrite renames; if WAV publication fails after the new manifest was published, that manifest is removed. Handled worker failures/timeouts discard staging. Two separate final files are not a filesystem transaction: a process crash during final publication can leave a manifest without its WAV. Existing outputs are never deliberately replaced. The manifest and stdout JSON agree and record source/executable/input/output hashes, edited state, selected voice, note/velocity, rate, requested seconds, actual duration/tail frames, block size, engine, seed, measured levels and initialization/timing policy.
+
+Three Rust render tests cover frame validation, malformed/nonfinite WAV rejection and publication rollback. Four native CLI checks cover alias equality, all-engine direct-backend comparisons at 44.1/48 kHz, Unicode paths, bank/override propagation, exact manifest/hash/metric agreement, invalid arguments/pins/hashes, existing output protection and staging cleanup after worker failure. Two opt-in worker tests cover Python and direct-native deadlines. The combined run also exercises the existing Surge/VST adapters after sharing the process runner.
+
 ## Native backend
 
 Windows x64 has a separate internal renderer built around the pinned Dexed audio processor, including Modern, Mark I and OPL engines. The upstream JUCE/UI dependencies are compiled and linked, but no editor, audio output device or MIDI device is opened. A generated build copy of PluginProcessor.cpp disables constructor calls that load preferences/startup cartridges, resolve personal application folders and register external MTS tuning. It initializes the native Init program instead. The FM/voice/effect processing code is retained. The external source checkout is left unchanged.
@@ -68,7 +94,7 @@ The internal executable currently takes positional arguments:
 nzrdsp-dexed-native.exe voice.syx output.wav note velocity duration_frames tail_frames rate block engine seed
 ```
 
-Input must be a valid single-voice SysEx file, produced by `--save-sysex` if starting with a bank. Engine 0 selects Modern, 1 Mark I, 2 OPL. It streams stereo Float32 WAV in bounded blocks, without normalization. The requested frame count is exact, including partial blocks. Output is opened exclusively: existing files are preserved. Errors after file creation remove that process's partial output. It prints native log lines followed by one JSON result containing source pin, timing, engine, note/velocity, block size, seed, frame count, peak and RMS. This internal executable does not yet produce the final render sidecar or have a subprocess deadline; those belong to the pending Rust command adapter. Forced process termination can leave a partial output, so development runs should use an isolated temporary directory.
+Input must be a valid single-voice SysEx file, produced by `--save-sysex` if starting with a bank. Engine 0 selects Modern, 1 Mark I, 2 OPL. It streams stereo Float32 WAV in bounded blocks, without normalization. The requested frame count is exact, including partial blocks. Output is opened exclusively: existing files are preserved. Errors after file creation remove that process's partial output. It prints native log lines followed by one JSON result containing source pin, timing, engine, note/velocity, block size, seed, frame count, peak and RMS. The Rust command supplies the final render sidecar and subprocess deadline. Direct use of the internal executable bypasses them and can leave a partial output after forced termination; development runs should use an isolated temporary directory.
 
 Accepted sample rates are 22050 through 192000 Hz. The source's internal FM processing quantum is 64 samples; note timing retains that processor's behavior. Tests exposed broken attack/release or silence at 8 kHz in the pinned upstream core. Lower rates are rejected before output creation; there is no silent resampling fallback or claim to fix the upstream low-rate DSP.
 
@@ -79,4 +105,14 @@ $env:NZRDSP_DEXED_NATIVE = 'D:\NZRdsp-runtime\dexed\nzrdsp-dexed-native.exe'
 python -X utf8 -m unittest python.tests.test_dexed_native -v
 ```
 
-The three native checks pass locally. They establish backend behavior for these synthetic fixtures, not hardware, GUI or other-emulator audio parity. Issue #6 remains open for the Rust render interface, final manifests, subprocess controls and independent reference recordings.
+The three native checks pass locally. They establish backend behavior for these synthetic fixtures, not hardware, GUI or other-emulator audio parity. Issue #6 remains open for independent hardware/verified-emulator reference recordings. The implemented CLI/direct-backend comparison checks the adapter, not independent audio parity.
+
+Run the CLI suite with `NZRDSP_NATIVE_CLI` pointing to `nzrdsp`, and `NZRDSP_RUNTIME` pointing to the same host configuration used by Rust:
+
+```powershell
+python -X utf8 -m unittest python.tests.test_dexed_cli_render -v
+```
+
+For Microsoft Store Python, copy the host runtime config with PowerShell to a temporary path outside AppData before setting NZRDSP_RUNTIME; its private AppData overlay can otherwise expose stale engine configuration. The CLI itself reads the host file correctly.
+
+The combined local run passes 21 integration checks (Dexed, Surge, preset metadata and native Saturn/Pro-Q host tests). Ten ordinary Rust tests pass; both ignored-by-default timeout tests were also run and passed explicitly. Native backend/compiler artifacts remain outside Git.

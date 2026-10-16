@@ -16,10 +16,21 @@ struct Cli {
 #[derive(Subcommand)]
 enum Engine {
     Surge(SurgeArgs),
-    /// Inspect/edit DX7 SysEx; native Dexed rendering is not implemented yet
+    /// Inspect/edit DX7 SysEx and render through the native Dexed engine
     Dexed(dexed::DexedArgs),
     /// Render through an installed native VST3 effect
     Vst(vst::VstArgs),
+}
+
+#[derive(Parser)]
+#[command(name = "dexed-cli", version)]
+struct DexedCli {
+    #[command(flatten)]
+    args: dexed::DexedArgs,
+}
+
+pub fn run_dexed() -> Result<()> {
+    dexed::run(DexedCli::parse().args)
 }
 
 #[derive(Parser)]

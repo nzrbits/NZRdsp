@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
-use clap::Args;
+use clap::{Args, ValueEnum};
+mod render;
 use serde_json::{json, Value};
 use std::{
     fs::File,
@@ -28,6 +29,45 @@ pub struct DexedArgs {
     /// Export the selected/edited voice as a new single-voice .syx file
     #[arg(long, requires = "sysex")]
     save_sysex: Option<PathBuf>,
+    /// Render the selected/edited voice to a new Float32 WAV and .wav.json manifest
+    #[arg(short, long, requires = "sysex", conflicts_with_all = ["save_sysex", "list_params", "list_voices"])]
+    output: Option<PathBuf>,
+    #[arg(long, requires = "output")]
+    runtime: Option<PathBuf>,
+    #[arg(long, requires = "output", default_value_t = 36, value_parser = clap::value_parser!(u8).range(0..=127))]
+    note: u8,
+    #[arg(long, requires = "output", default_value_t = 100, value_parser = clap::value_parser!(u8).range(1..=127))]
+    velocity: u8,
+    #[arg(long, requires = "output", default_value_t = 2.0)]
+    duration: f64,
+    #[arg(long, requires = "output", default_value_t = 2.0)]
+    tail: f64,
+    #[arg(long, requires = "output", default_value_t = 48000, value_parser = clap::value_parser!(u32).range(22050..=192000))]
+    rate: u32,
+    #[arg(long, requires = "output", default_value_t = 64, value_parser = clap::value_parser!(u32).range(1..=8192))]
+    block: u32,
+    #[arg(long, requires = "output", value_enum, default_value = "mark1")]
+    engine: DexedEngine,
+    #[arg(long, requires = "output", default_value_t = 0)]
+    seed: u32,
+    #[arg(long, requires = "output", default_value_t = 120, value_parser = clap::value_parser!(u32).range(1..=3600))]
+    timeout: u32,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum DexedEngine {
+    Modern,
+    Mark1,
+    Opl,
+}
+impl DexedEngine {
+    fn id(self) -> u8 {
+        match self {
+            Self::Modern => 0,
+            Self::Mark1 => 1,
+            Self::Opl => 2,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -293,7 +333,8 @@ pub fn run(args: DexedArgs) -> Result<()> {
     }
     let input = args
         .sysex
-        .context("Pass --sysex or --list-params; Dexed audio rendering is not implemented yet")?;
+        .as_ref()
+        .context("Pass --sysex or --list-params")?;
     let mut bytes = Vec::new();
     File::open(&input)?.take(4105).read_to_end(&mut bytes)?;
     let bank = parse(&bytes)?;
@@ -306,6 +347,11 @@ pub fn run(args: DexedArgs) -> Result<()> {
             .get(args.voice as usize)
             .context("Voice index does not exist in this SysEx message")?;
         edit(&mut program, &args.parameters, args.name.as_deref())?;
+        if args.output.is_some() {
+            let response = render::run(&args, input, &bytes, &bank, &program)?;
+            println!("{}", serde_json::to_string_pretty(&response)?);
+            return Ok(());
+        }
         if let Some(path) = &args.save_sysex {
             save_new(path, &single_voice(&program, bank.channel))?;
         }

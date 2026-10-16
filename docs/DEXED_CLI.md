@@ -1,6 +1,6 @@
 # Dexed SysEx tools
 
-`nzrdsp dexed` currently inspects and edits DX7 SysEx. Native Dexed note rendering, WAV output and audio reference comparison are still pending under #6. No plugin, Python runtime or audio device is required for these commands.
+`nzrdsp dexed` currently inspects and edits DX7 SysEx. A separate native Dexed backend now renders notes to WAV. Its connection to this Rust command and an independent audio reference comparison are still pending under #6. No plugin, Python runtime or audio device is required for these commands.
 
 ## Commands
 
@@ -49,3 +49,34 @@ python -X utf8 -m unittest python.tests.test_dexed_sysex -v
 ```
 
 The recorded local run compared 96 deterministic synthetic voices across three generated banks, all 14880 unpacked bytes equal to the compiled upstream function. All three CLI checks pass; seven Rust tests pass with the unrelated opt-in worker timeout test skipped. This verifies the SysEx mapping for those valid inputs. Hardware/GUI/audio parity and the native renderer are not verified by this test.
+
+## Native backend
+
+Windows x64 has a separate internal renderer built around the pinned Dexed audio processor, including Modern, Mark I and OPL engines. The upstream JUCE/UI dependencies are compiled and linked, but no editor, audio output device or MIDI device is opened. A generated build copy of PluginProcessor.cpp disables constructor calls that load preferences/startup cartridges, resolve personal application folders and register external MTS tuning. It initializes the native Init program instead. The FM/voice/effect processing code is retained. The external source checkout is left unchanged.
+
+Build with Visual Studio 2022 C++ tools, Windows SDK, Git, CMake and PowerShell 7:
+
+```powershell
+.\scripts\build-dexed.ps1 -BuildRoot D:\NZRdsp-build -RuntimeRoot D:\NZRdsp-runtime
+```
+
+The script clones the pinned source and exact submodules outside this repo, builds the internal console target, installs the executable/license/build record and adds `engines.dexed` to the existing NZRdsp runtime configuration. Other engine entries are retained. CMake rejects a wrong revision or tracked source/submodule edits. The build record includes executable/adapter/constructor-overlay hashes, source pin, submodule pins and build paths. Source is available from the linked upstream repository and this adapter directory; no binary or factory bank is committed here. Dexed and this native adapter use GPL-3.0-or-later; MSFA retains its source notices.
+
+The internal executable currently takes positional arguments:
+
+```text
+nzrdsp-dexed-native.exe voice.syx output.wav note velocity duration_frames tail_frames rate block engine seed
+```
+
+Input must be a valid single-voice SysEx file, produced by `--save-sysex` if starting with a bank. Engine 0 selects Modern, 1 Mark I, 2 OPL. It streams stereo Float32 WAV in bounded blocks, without normalization. The requested frame count is exact, including partial blocks. Output is opened exclusively: existing files are preserved. Errors after file creation remove that process's partial output. It prints native log lines followed by one JSON result containing source pin, timing, engine, note/velocity, block size, seed, frame count, peak and RMS. This internal executable does not yet produce the final render sidecar or have a subprocess deadline; those belong to the pending Rust command adapter. Forced process termination can leave a partial output, so development runs should use an isolated temporary directory.
+
+Accepted sample rates are 22050 through 192000 Hz. The source's internal FM processing quantum is 64 samples; note timing retains that processor's behavior. Tests exposed broken attack/release or silence at 8 kHz in the pinned upstream core. Lower rates are rejected before output creation; there is no silent resampling fallback or claim to fix the upstream low-rate DSP.
+
+Three opt-in native tests exercise all three engines at 22.05/44.1/48/96/192 kHz, partial blocks, exact WAV format/frame counts, byte-identical repeated rendering, release tails, stereo duplication, native frequency changes and invalid-input/existing-file preservation. They also compare the reported peak/RMS to decoded samples. Run with the installed executable and Python's NumPy/SoundFile environment:
+
+```powershell
+$env:NZRDSP_DEXED_NATIVE = 'D:\NZRdsp-runtime\dexed\nzrdsp-dexed-native.exe'
+python -X utf8 -m unittest python.tests.test_dexed_native -v
+```
+
+The three native checks pass locally. They establish backend behavior for these synthetic fixtures, not hardware, GUI or other-emulator audio parity. Issue #6 remains open for the Rust render interface, final manifests, subprocess controls and independent reference recordings.

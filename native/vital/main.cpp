@@ -63,11 +63,14 @@ static Json run(const Json& request) {
     vital::utils::RandomGenerator::next_seed_ = int(seed);
     OfflineSynth synth;
     synth.loadInitPreset();
+    Json captured_sample;
     if (request.count("preset") && !request["preset"].is_null()) {
         const auto preset = absoluteFile(request["preset"]);
         auto state = readJson(preset, 64 * 1024 * 1024);
         require(state.count("synth_version") && state["synth_version"].is_string()
             && state.count("settings") && state["settings"].is_object(), "Invalid native preset");
+        if (state["synth_version"] == "1.0.6" && state["settings"].count("sample"))
+            captured_sample = state["settings"]["sample"];
         std::string error;
         const auto loaded = synth.loadFromFile(preset, error);
         require(loaded, error.empty() ? "Cannot load preset" : error.c_str());
@@ -101,7 +104,15 @@ static Json run(const Json& request) {
     synth.processModulationChanges();
     const auto output = absoluteFile(request.at("output"));
     if (action == "save") {
-        const auto text = synth.saveToJson().dump(2) + "\n";
+        auto state = synth.saveToJson();
+        const auto& sample = state["settings"]["sample"];
+        // Controls cannot edit the PCM resource; avoid a second lossy float-to-PCM conversion.
+        if (captured_sample.is_object() && captured_sample.count("samples")
+            && captured_sample["length"] == sample["length"]
+            && captured_sample["sample_rate"] == sample["sample_rate"]
+            && captured_sample["name"] == sample["name"])
+            state["settings"]["sample"] = captured_sample;
+        const auto text = state.dump(2) + "\n";
         NewFile file(output);
         file.write(text.data(), text.size());
         file.finish();

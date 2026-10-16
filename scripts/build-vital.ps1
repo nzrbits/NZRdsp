@@ -61,4 +61,4 @@ $temporary = Join-Path $configDir ('.runtime-' + [guid]::NewGuid().ToString('N')
 $config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporary -Encoding utf8
 [IO.File]::Move($temporary, $configPath, $true)
 Write-Output "Built NZRdsp spectral renderer: $binary"
-Write-Output 'This is the internal native backend; see docs/VITAL_BACKEND.md for its request format and remaining CLI work.'
+Write-Output 'Use nzrdsp vital or vital-cli; see docs/VITAL_CLI.md. The internal request interface is in docs/VITAL_BACKEND.md.'

@@ -21,3 +21,7 @@ path = "src/surge_main.rs"
 [[bin]]
 name = "dexed-cli"
 path = "src/dexed_main.rs"
+
+[[bin]]
+name = "vital-cli"
+path = "src/vital_main.rs"

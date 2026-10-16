@@ -3,6 +3,8 @@ use clap::{Args, Parser, Subcommand};
 use serde_json::json;
 use std::{path::PathBuf, time::Duration};
 mod dexed;
+mod native;
+mod vital;
 mod vst;
 mod worker;
 
@@ -18,6 +20,8 @@ enum Engine {
     Surge(SurgeArgs),
     /// Inspect/edit DX7 SysEx and render through the native Dexed engine
     Dexed(dexed::DexedArgs),
+    /// Render and edit native presets through the pinned spectral engine
+    Vital(vital::VitalArgs),
     /// Render through an installed native VST3 effect
     Vst(vst::VstArgs),
 }
@@ -31,6 +35,17 @@ struct DexedCli {
 
 pub fn run_dexed() -> Result<()> {
     dexed::run(DexedCli::parse().args)
+}
+
+#[derive(Parser)]
+#[command(name = "vital-cli", version)]
+struct VitalCli {
+    #[command(flatten)]
+    args: vital::VitalArgs,
+}
+
+pub fn run_vital() -> Result<()> {
+    vital::run(VitalCli::parse().args)
 }
 
 #[derive(Parser)]
@@ -88,6 +103,7 @@ pub fn run(surge_alias: bool) -> Result<()> {
             Engine::Surge(args) => args,
             Engine::Vst(args) => return vst::run(args),
             Engine::Dexed(args) => return dexed::run(args),
+            Engine::Vital(args) => return vital::run(args),
         }
     };
     if !args.duration.is_finite()

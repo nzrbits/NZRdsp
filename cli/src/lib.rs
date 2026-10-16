@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use serde_json::json;
 use std::{path::PathBuf, time::Duration};
+mod dexed;
 mod vst;
 mod worker;
 
@@ -15,6 +16,8 @@ struct Cli {
 #[derive(Subcommand)]
 enum Engine {
     Surge(SurgeArgs),
+    /// Inspect/edit DX7 SysEx; native Dexed rendering is not implemented yet
+    Dexed(dexed::DexedArgs),
     /// Render through an installed native VST3 effect
     Vst(vst::VstArgs),
 }
@@ -73,6 +76,7 @@ pub fn run(surge_alias: bool) -> Result<()> {
         match Cli::parse().engine {
             Engine::Surge(args) => args,
             Engine::Vst(args) => return vst::run(args),
+            Engine::Dexed(args) => return dexed::run(args),
         }
     };
     if !args.duration.is_finite()

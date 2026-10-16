@@ -1,5 +1,9 @@
 # NZRdsp handoff
 
+## Dexed SysEx foundation
+
+Issue #6 is in progress. cli/src/dexed.rs adds nzrdsp dexed for strict DX7 bank/single-voice parsing, schema/voice listing, named raw edits, ASCII names and atomic new-file single-voice exports. It covers 145 synthesis bytes and ten name bytes; no native engine/rendering command is claimed. Four new Rust tests plus three CLI tests pass. The CLI differential test compares 96 generated voices/14880 bytes exactly with a compiled harness containing the unmodified pinned Dexed unpackProgram/normparm functions. scripts/prepare-dexed-oracle.py validates the external source hash and generates that harness. Reproduction and limits are in docs/DEXED_CLI.md. Local log: D:/music-dev-build/NZRdsp/tests/dexed/sysex-cli-tests.log. Seven ordinary Rust checks pass; unrelated worker timeout remains opt-in. No native runtime, Studio app or music changed. Next #6 work is the full native Dexed processor harness and audio reference checks.
+
 ## Surge metadata and runtime fixes
 
 CLI --metadata reads native preset metadata; --list-presets ROOT and --query search stored fields/relative paths. The source-derived FXP reader validates headers/sizes and only parses the metadata element, since factory Snare Tight has a strict-XML-invalid reference later in its DSP XML. The source factory scan reads 641 patches, 62 bass matches, zero errors. GUI comparison is now the remaining #7 gate, not metadata. Five native Surge and two parser checks cover the additions.

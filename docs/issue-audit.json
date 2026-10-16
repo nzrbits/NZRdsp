@@ -43,8 +43,8 @@
     "number": 6,
     "title": "06 — Dexed: DX7 FM Synth CLI",
     "url": "https://github.com/nzrbits/NZRdsp/issues/6",
-    "status": "pending",
-    "evidence": "",
+    "status": "in-progress",
+    "evidence": "DEXED_CLI.md",
     "scope_notes": "PLUGINS.md"
   },
   {
